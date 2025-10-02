@@ -2,6 +2,10 @@
 import { Command } from 'commander';
 import { GitDetector } from './git-detector.js';
 import { SecretScanner } from './secret-scanner.js';
+import { FileClassifier } from './file-classifier.js';
+import { OperationPlanner, OperationExecutor } from './operation-executor.js';
+import { BackupManager } from './backup-manager.js';
+import { BuildDetector, BuildValidationService } from './build-validator.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -102,8 +106,192 @@ program
     console.log(`Monorepo: ${result.hasMultipleRepos ? 'Yes' : 'No'}\n`);
 
     console.log('Suggested commands:');
-    console.log('  devibe scan       Scan for secrets before committing');
-    console.log('  devibe detect     Show all git repositories');
+    console.log('  devibe scan            Scan for secrets');
+    console.log('  devibe plan            Plan root file distribution');
+    console.log('  devibe enforce         Enforce folder structure');
+    console.log('  devibe validate        Validate builds');
+  });
+
+program
+  .command('plan')
+  .description('Plan root file distribution (dry-run)')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (options) => {
+    const detector = new GitDetector();
+    const classifier = new FileClassifier();
+    const planner = new OperationPlanner(detector, classifier);
+
+    console.log('\n📋 Planning root file distribution...\n');
+
+    const plan = await planner.planRootFileDistribution(options.path);
+
+    if (plan.operations.length === 0) {
+      console.log('✓ No operations needed. Repository is clean!\n');
+      return;
+    }
+
+    console.log(`Found ${plan.operations.length} operations:\n`);
+
+    for (const op of plan.operations) {
+      console.log(`  ${op.type.toUpperCase()}: ${path.basename(op.sourcePath)}`);
+      if (op.targetPath) {
+        console.log(`    → ${op.targetPath}`);
+      }
+      console.log(`    Reason: ${op.reason}\n`);
+    }
+
+    console.log(`Estimated duration: ${plan.estimatedDuration}ms`);
+    console.log(`Backup required: ${plan.backupRequired ? 'Yes' : 'No'}\n`);
+    console.log('Run "devibe execute" to apply these changes.\n');
+  });
+
+program
+  .command('execute')
+  .description('Execute planned operations')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('--dry-run', 'Show what would be done without making changes', false)
+  .action(async (options) => {
+    const detector = new GitDetector();
+    const classifier = new FileClassifier();
+    const planner = new OperationPlanner(detector, classifier);
+    const backupManager = new BackupManager(path.join(options.path, '.unvibe', 'backups'));
+    const executor = new OperationExecutor(backupManager);
+
+    console.log(`\n${options.dryRun ? '🔍 DRY RUN: ' : '⚡ '}Executing operations...\n`);
+
+    const plan = await planner.planRootFileDistribution(options.path);
+
+    if (plan.operations.length === 0) {
+      console.log('✓ No operations to execute.\n');
+      return;
+    }
+
+    const result = await executor.execute(plan, options.dryRun);
+
+    if (result.success) {
+      console.log(`✓ Successfully completed ${result.operationsCompleted} operations\n`);
+      if (result.backupManifestId && !options.dryRun) {
+        console.log(`📦 Backup created: ${result.backupManifestId}\n`);
+        console.log(`   Restore with: devibe restore ${result.backupManifestId}\n`);
+      }
+    } else {
+      console.log(`⚠️  Completed ${result.operationsCompleted}, failed ${result.operationsFailed}\n`);
+      for (const error of result.errors) {
+        console.log(`  ❌ ${error}`);
+      }
+    }
+  });
+
+program
+  .command('enforce')
+  .description('Enforce folder structure (scripts/, documents/)')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('--dry-run', 'Show what would be done', false)
+  .action(async (options) => {
+    const detector = new GitDetector();
+    const classifier = new FileClassifier();
+    const planner = new OperationPlanner(detector, classifier);
+    const backupManager = new BackupManager(path.join(options.path, '.unvibe', 'backups'));
+    const executor = new OperationExecutor(backupManager);
+
+    console.log(`\n${options.dryRun ? '🔍 DRY RUN: ' : '📁 '}Enforcing folder structure...\n`);
+
+    const plan = await planner.planFolderEnforcement(options.path);
+
+    if (plan.operations.length === 0) {
+      console.log('✓ Folder structure is already compliant!\n');
+      return;
+    }
+
+    console.log(`Planning ${plan.operations.length} operations:\n`);
+    for (const op of plan.operations) {
+      console.log(`  ${op.type.toUpperCase()}: ${path.basename(op.sourcePath)}`);
+      if (op.targetPath) {
+        console.log(`    → ${op.targetPath}`);
+      }
+    }
+    console.log();
+
+    const result = await executor.execute(plan, options.dryRun);
+
+    if (result.success) {
+      console.log(`✓ Folder structure enforced successfully!\n`);
+    } else {
+      console.log(`⚠️  Some operations failed. See errors above.\n`);
+    }
+  });
+
+program
+  .command('validate')
+  .description('Validate build systems')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (options) => {
+    const detector = new BuildDetector();
+    const validator = new BuildValidationService();
+
+    console.log('\n🔧 Detecting build systems...\n');
+
+    const technologies = await detector.detect(options.path);
+
+    if (technologies.length === 0) {
+      console.log('⚠️  No recognized build systems found.\n');
+      return;
+    }
+
+    console.log(`Found: ${technologies.join(', ')}\n`);
+    console.log('Running validations...\n');
+
+    const results = await validator.validateAllBuilds(options.path);
+
+    for (const [tech, result] of results) {
+      const icon = result.success ? '✓' : '✗';
+      console.log(`${icon} ${tech}: ${result.success ? 'PASSED' : 'FAILED'} (${result.duration}ms)`);
+      if (!result.success) {
+        console.log(`   ${result.stderr}\n`);
+      }
+    }
+    console.log();
+  });
+
+program
+  .command('restore <manifest-id>')
+  .description('Restore from backup')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (manifestId, options) => {
+    const backupManager = new BackupManager(path.join(options.path, '.unvibe', 'backups'));
+
+    console.log(`\n♻️  Restoring from backup ${manifestId}...\n`);
+
+    try {
+      await backupManager.restore(manifestId);
+      console.log('✓ Restore completed successfully!\n');
+    } catch (error: any) {
+      console.log(`❌ Restore failed: ${error.message}\n`);
+    }
+  });
+
+program
+  .command('backups')
+  .description('List all backups')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (options) => {
+    const backupManager = new BackupManager(path.join(options.path, '.unvibe', 'backups'));
+
+    console.log('\n📦 Available Backups:\n');
+
+    const backups = await backupManager.listBackups();
+
+    if (backups.length === 0) {
+      console.log('  No backups found.\n');
+      return;
+    }
+
+    for (const backup of backups) {
+      console.log(`  ${backup.id}`);
+      console.log(`    Date: ${backup.timestamp.toLocaleString()}`);
+      console.log(`    Operations: ${backup.operations.length}`);
+      console.log(`    Reversible: ${backup.reversible ? 'Yes' : 'No'}\n`);
+    }
   });
 
 function getSeverityIcon(severity: string): string {
