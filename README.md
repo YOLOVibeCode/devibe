@@ -148,6 +148,26 @@ export OPENAI_API_KEY=your-key-here
 - **TypeScript** - Fully typed
 - **Zero runtime dependencies**
 
+## GitHub Integration
+
+UnVibe integrates with GitHub to keep your `main` branch clean:
+
+```bash
+# Setup git hooks (auto-runs on push)
+devibe setup-hooks
+
+# Check before pushing
+devibe check-pr
+```
+
+**Features:**
+- ✅ Pre-push hooks block critical secrets
+- ✅ GitHub Actions validate PRs
+- ✅ Automated PR comments with results
+- ✅ Prevents broken builds on main
+
+See [GITHUB-INTEGRATION.md](GITHUB-INTEGRATION.md) for full guide.
+
 ## Development
 
 ```bash

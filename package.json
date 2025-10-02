@@ -15,7 +15,8 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src tests --ext .ts",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "dev": "tsx src/cli.ts"
+    "dev": "tsx src/cli.ts",
+    "postinstall": "bash scripts/setup-hooks.sh 2>/dev/null || true"
   },
   "keywords": [
     "cleanup",

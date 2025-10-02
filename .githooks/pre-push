@@ -1,0 +1,110 @@
+#!/bin/bash
+# UnVibe Pre-Push Hook
+# Ensures repository is clean before pushing to main/master
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}🔍 UnVibe Pre-Push Check${NC}\n"
+
+# Get the current branch
+current_branch=$(git symbolic-ref --short HEAD)
+
+# Get the remote and branch being pushed to
+while read local_ref local_sha remote_ref remote_sha
+do
+    remote_branch=$(echo "$remote_ref" | sed 's/refs\/heads\///')
+
+    # Only check pushes to main or master
+    if [[ "$remote_branch" == "main" ]] || [[ "$remote_branch" == "master" ]]; then
+        echo -e "${YELLOW}⚠️  Pushing to $remote_branch - running UnVibe checks...${NC}\n"
+
+        # Check 1: Secret Scan
+        echo -e "${GREEN}1. Scanning for secrets...${NC}"
+        if command -v devibe &> /dev/null; then
+            scan_output=$(devibe scan 2>&1)
+
+            # Check if critical secrets were found
+            if echo "$scan_output" | grep -q "Critical:"; then
+                critical_count=$(echo "$scan_output" | grep "Critical:" | grep -oE '[0-9]+' | head -1)
+
+                if [ "$critical_count" -gt 0 ]; then
+                    echo -e "${RED}❌ PUSH REJECTED: Found $critical_count critical secrets!${NC}\n"
+                    echo "$scan_output"
+                    echo -e "\n${YELLOW}Fix secrets and try again:${NC}"
+                    echo "  1. Review: devibe scan"
+                    echo "  2. Remove secrets from code"
+                    echo "  3. Use environment variables instead"
+                    exit 1
+                fi
+            fi
+            echo -e "${GREEN}✓ No critical secrets found${NC}\n"
+        else
+            echo -e "${YELLOW}⚠️  devibe not found, skipping secret scan${NC}\n"
+        fi
+
+        # Check 2: Build Validation (if applicable)
+        echo -e "${GREEN}2. Validating builds...${NC}"
+        if [ -f "package.json" ]; then
+            if command -v npm &> /dev/null; then
+                if grep -q '"build"' package.json; then
+                    if npm run build &> /dev/null; then
+                        echo -e "${GREEN}✓ Build successful${NC}\n"
+                    else
+                        echo -e "${RED}❌ PUSH REJECTED: Build failed!${NC}\n"
+                        echo -e "${YELLOW}Fix build errors and try again:${NC}"
+                        echo "  npm run build"
+                        exit 1
+                    fi
+                else
+                    echo -e "${YELLOW}⚠️  No build script found, skipping${NC}\n"
+                fi
+            fi
+        fi
+
+        # Check 3: Tests
+        echo -e "${GREEN}3. Running tests...${NC}"
+        if [ -f "package.json" ]; then
+            if command -v npm &> /dev/null; then
+                if grep -q '"test"' package.json; then
+                    if npm test &> /dev/null; then
+                        echo -e "${GREEN}✓ All tests passed${NC}\n"
+                    else
+                        echo -e "${RED}❌ PUSH REJECTED: Tests failed!${NC}\n"
+                        echo -e "${YELLOW}Fix tests and try again:${NC}"
+                        echo "  npm test"
+                        exit 1
+                    fi
+                fi
+            fi
+        fi
+
+        # Check 4: Folder Structure
+        echo -e "${GREEN}4. Checking folder structure...${NC}"
+        if command -v devibe &> /dev/null; then
+            # Run enforce in dry-run mode
+            enforce_output=$(devibe enforce --dry-run 2>&1)
+
+            if echo "$enforce_output" | grep -q "operations"; then
+                operations=$(echo "$enforce_output" | grep "operations" | grep -oE '[0-9]+' | head -1)
+
+                if [ "$operations" -gt 0 ]; then
+                    echo -e "${YELLOW}⚠️  WARNING: Folder structure not enforced ($operations operations needed)${NC}"
+                    echo -e "${YELLOW}Consider running: devibe enforce${NC}\n"
+                    # Warning only, not blocking
+                else
+                    echo -e "${GREEN}✓ Folder structure compliant${NC}\n"
+                fi
+            else
+                echo -e "${GREEN}✓ Folder structure compliant${NC}\n"
+            fi
+        fi
+
+        echo -e "${GREEN}✅ All checks passed! Proceeding with push...${NC}\n"
+    fi
+done
+
+exit 0

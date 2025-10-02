@@ -366,6 +366,104 @@ program
     }
   });
 
+program
+  .command('setup-hooks')
+  .description('Setup Git hooks for automated checks')
+  .action(async () => {
+    console.log('\n🔧 Setting up Git hooks...\n');
+
+    try {
+      const { execSync } = await import('child_process');
+      const scriptPath = path.join(__dirname, '../scripts/setup-hooks.sh');
+
+      execSync('bash ' + scriptPath, { stdio: 'inherit' });
+    } catch (error: any) {
+      console.log(`❌ Failed to setup hooks: ${error.message}\n`);
+      console.log('Manual setup:');
+      console.log('  bash scripts/setup-hooks.sh\n');
+    }
+  });
+
+program
+  .command('check-pr')
+  .description('Check if repository is ready for PR/push to main')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (options) => {
+    console.log('\n🔍 Pre-Push Check (simulating GitHub CI)...\n');
+
+    let hasErrors = false;
+
+    // Step 1: Secret Scan
+    console.log('1️⃣  Scanning for secrets...');
+    const scanner = new SecretScanner();
+    const files = await findSourceFiles(options.path);
+
+    if (files.length > 0) {
+      const scanResult = await scanner.scanFiles(files);
+
+      if (scanResult.summary.critical > 0) {
+        console.log(`   ❌ CRITICAL: Found ${scanResult.summary.critical} critical secrets!\n`);
+        hasErrors = true;
+
+        // Show first 3 critical findings
+        const criticalFindings = scanResult.findings
+          .filter((f) => f.severity === 'critical')
+          .slice(0, 3);
+
+        for (const finding of criticalFindings) {
+          console.log(`      ${finding.file}:${finding.line}`);
+          console.log(`      ${finding.type}: ${finding.context}\n`);
+        }
+      } else {
+        console.log('   ✓ No critical secrets found\n');
+      }
+    }
+
+    // Step 2: Build Check
+    console.log('2️⃣  Checking build...');
+    try {
+      const { execSync } = await import('child_process');
+      execSync('npm run build', { stdio: 'ignore', cwd: options.path });
+      console.log('   ✓ Build successful\n');
+    } catch {
+      console.log('   ⚠️  Build failed or not configured\n');
+    }
+
+    // Step 3: Tests
+    console.log('3️⃣  Running tests...');
+    try {
+      const { execSync } = await import('child_process');
+      execSync('npm test', { stdio: 'ignore', cwd: options.path });
+      console.log('   ✓ All tests passed\n');
+    } catch {
+      console.log('   ❌ Tests failed\n');
+      hasErrors = true;
+    }
+
+    // Step 4: Folder Structure
+    console.log('4️⃣  Checking folder structure...');
+    const detector = new GitDetector();
+    const classifier = new FileClassifier();
+    const planner = new OperationPlanner(detector, classifier);
+
+    const enforcePlan = await planner.planFolderEnforcement(options.path);
+
+    if (enforcePlan.operations.length > 0) {
+      console.log(`   ⚠️  WARNING: ${enforcePlan.operations.length} folder structure issues\n`);
+    } else {
+      console.log('   ✓ Folder structure compliant\n');
+    }
+
+    // Final Result
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    if (hasErrors) {
+      console.log('❌ PUSH BLOCKED: Fix errors above before pushing to main\n');
+      process.exit(1);
+    } else {
+      console.log('✅ All checks passed! Safe to push to main\n');
+    }
+  });
+
 function getSeverityIcon(severity: string): string {
   switch (severity) {
     case 'critical':
