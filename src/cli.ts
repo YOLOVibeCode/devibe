@@ -6,6 +6,9 @@ import { FileClassifier } from './file-classifier.js';
 import { OperationPlanner, OperationExecutor } from './operation-executor.js';
 import { BackupManager } from './backup-manager.js';
 import { BuildDetector, BuildValidationService } from './build-validator.js';
+import { YoloMode } from './yolo-mode.js';
+import { ConfigManager } from './config.js';
+import { AIClassifierFactory } from './ai-classifier.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -291,6 +294,75 @@ program
       console.log(`    Date: ${backup.timestamp.toLocaleString()}`);
       console.log(`    Operations: ${backup.operations.length}`);
       console.log(`    Reversible: ${backup.reversible ? 'Yes' : 'No'}\n`);
+    }
+  });
+
+program
+  .command('yolo')
+  .description('YOLO mode: aggressive auto-cleanup (use with caution!)')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (options) => {
+    console.log('\n⚡ YOLO MODE - Aggressive Auto-Cleanup\n');
+
+    if (!AIClassifierFactory.isAvailable()) {
+      console.log('⚠️  WARNING: AI not available!');
+      console.log('   YOLO mode works best with AI classification.');
+      console.log('   Set ANTHROPIC_API_KEY or OPENAI_API_KEY for best results.\n');
+    }
+
+    console.log('🚀 Running full cleanup workflow...\n');
+
+    const yolo = new YoloMode();
+    const result = await yolo.run(options.path);
+
+    // Display results
+    console.log('📊 Results:\n');
+    console.log(`  Secret Scan: ${result.steps.secretScan.found} found (${result.steps.secretScan.critical} critical)`);
+    console.log(`  Planning: ${result.steps.planning.operations} operations`);
+    console.log(`  Execution: ${result.steps.execution.completed} completed, ${result.steps.execution.failed} failed`);
+    console.log(`  Folder Enforcement: ${result.steps.folderEnforcement.operations} operations`);
+    console.log(`  Build Validation: ${result.steps.buildValidation.passed ? '✓ PASSED' : '✗ FAILED'}\n`);
+
+    if (result.warnings.length > 0) {
+      console.log('⚠️  Warnings:');
+      for (const warning of result.warnings) {
+        console.log(`  - ${warning}`);
+      }
+      console.log();
+    }
+
+    if (result.errors.length > 0) {
+      console.log('❌ Errors:');
+      for (const error of result.errors) {
+        console.log(`  - ${error}`);
+      }
+      console.log();
+    }
+
+    if (result.success) {
+      console.log('✅ YOLO mode completed successfully!\n');
+      if (result.backupManifestId) {
+        console.log(`📦 Backup: ${result.backupManifestId}`);
+        console.log(`   Restore with: devibe restore ${result.backupManifestId}\n`);
+      }
+    } else {
+      console.log('⚠️  YOLO mode completed with warnings/errors.\n');
+    }
+  });
+
+program
+  .command('init')
+  .description('Initialize UnVibe configuration')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (options) => {
+    console.log('\n⚙️  Initializing UnVibe configuration...\n');
+
+    try {
+      await ConfigManager.create(options.path);
+      console.log('✓ Created .unvibe.config.js\n');
+      console.log('Edit this file to customize UnVibe behavior.\n');
+    } catch (error: any) {
+      console.log(`❌ Failed to create config: ${error.message}\n`);
     }
   });
 

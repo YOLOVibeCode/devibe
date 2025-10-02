@@ -1,6 +1,6 @@
 {
   "name": "devibe",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "UnVibe - Repository cleanup utility for vibe coding sessions",
   "main": "dist/index.js",
   "type": "module",
