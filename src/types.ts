@@ -124,6 +124,7 @@ export interface BuildResult {
   duration: number;
   stdout: string;
   stderr: string;
+  recommendation?: string;
 }
 
 export interface ICanDetectBuildSystem {

@@ -68,6 +68,23 @@ export class NodeJSBuildValidator implements BuildValidator {
     const startTime = Date.now();
 
     try {
+      // Check if build script exists
+      const packageJsonPath = path.join(projectPath, 'package.json');
+      const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
+
+      if (!packageJson.scripts?.build) {
+        return {
+          success: true,
+          exitCode: 0,
+          duration: Date.now() - startTime,
+          stdout: '',
+          stderr: '',
+          recommendation: '⚠️  No build script found in package.json\n' +
+                        '   Skipping build validation (not blocking)\n' +
+                        '   To enable: Add "build": "tsc" or your build command to package.json scripts',
+        };
+      }
+
       const { stdout, stderr } = await execAsync('npm run build', {
         cwd: projectPath,
         timeout: 60000, // 60 second timeout
@@ -81,12 +98,31 @@ export class NodeJSBuildValidator implements BuildValidator {
         stderr,
       };
     } catch (error: any) {
+      // Check if it's a missing script error
+      if (error.message?.includes('missing script')) {
+        return {
+          success: true,
+          exitCode: 0,
+          duration: Date.now() - startTime,
+          stdout: '',
+          stderr: '',
+          recommendation: '⚠️  Build script not configured\n' +
+                        '   This project may not require a build step\n' +
+                        '   To add one: Add "build": "your-command" to package.json scripts',
+        };
+      }
+
       return {
         success: false,
         exitCode: error.code || 1,
         duration: Date.now() - startTime,
         stdout: error.stdout || '',
         stderr: error.stderr || error.message,
+        recommendation: '💡 Build failed. Possible fixes:\n' +
+                      '   • Run "npm install" to ensure dependencies are installed\n' +
+                      '   • Check for TypeScript errors if using tsc\n' +
+                      '   • Review build script in package.json\n' +
+                      '   • Run "npm run build" manually to see full error',
       };
     }
   }

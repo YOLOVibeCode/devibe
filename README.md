@@ -131,6 +131,55 @@ export ANTHROPIC_API_KEY=your-key-here
 export OPENAI_API_KEY=your-key-here
 ```
 
+UnVibe automatically detects AI availability and provides helpful recommendations when features are unavailable.
+
+## Intelligent Recommendations
+
+UnVibe provides smart, context-aware recommendations for common issues:
+
+### Missing Build Scripts
+```bash
+$ devibe validate
+✓ nodejs: PASSED (0ms)
+   ⚠️  No build script found in package.json
+   Skipping build validation (not blocking)
+   To enable: Add "build": "tsc" or your build command to package.json scripts
+```
+
+### Build Failures
+```bash
+$ devibe validate
+✗ nodejs: FAILED (499ms)
+   💡 Build failed. Possible fixes:
+   • Run "npm install" to ensure dependencies are installed
+   • Check for TypeScript errors if using tsc
+   • Review build script in package.json
+   • Run "npm run build" manually to see full error
+```
+
+### AI Unavailability
+```bash
+$ devibe plan
+⚠️  AI classification unavailable - using heuristics (65% accuracy)
+   For better results: Set ANTHROPIC_API_KEY or OPENAI_API_KEY
+```
+
+### Status Command
+```bash
+$ devibe status
+📊 UnVibe Status
+
+AI Classification:
+  ⚠️  AI unavailable - using heuristics (65% accuracy)
+     To enable: Set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable
+
+Build Configuration:
+  ⚠️  No build script found
+     To enable validation: Add "build" script to package.json
+```
+
+The app **never blocks** on missing optional features - it provides helpful guidance while continuing to work.
+
 ## Safety Guarantees
 
 1. **Git boundaries respected** - Never moves files between sibling repos

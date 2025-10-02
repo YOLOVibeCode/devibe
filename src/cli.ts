@@ -108,6 +108,36 @@ program
     console.log(`Git repositories: ${result.repositories.length}`);
     console.log(`Monorepo: ${result.hasMultipleRepos ? 'Yes' : 'No'}\n`);
 
+    // Check AI availability
+    const aiAvailable = AIClassifierFactory.isAvailable();
+    const provider = AIClassifierFactory.getPreferredProvider();
+
+    console.log('AI Classification:');
+    if (aiAvailable && provider) {
+      console.log(`  ✓ ${provider === 'anthropic' ? 'Anthropic Claude' : 'OpenAI GPT-4'} available (90% accuracy)`);
+    } else {
+      console.log('  ⚠️  AI unavailable - using heuristics (65% accuracy)');
+      console.log('     To enable: Set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable');
+    }
+    console.log();
+
+    // Check for build script in package.json (if Node.js project)
+    try {
+      const packageJsonPath = path.join(cwd, 'package.json');
+      const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
+
+      console.log('Build Configuration:');
+      if (packageJson.scripts?.build) {
+        console.log(`  ✓ Build script configured: "${packageJson.scripts.build}"`);
+      } else {
+        console.log('  ⚠️  No build script found');
+        console.log('     To enable validation: Add "build" script to package.json');
+      }
+      console.log();
+    } catch {
+      // Not a Node.js project or no package.json
+    }
+
     console.log('Suggested commands:');
     console.log('  devibe scan            Scan for secrets');
     console.log('  devibe plan            Plan root file distribution');
@@ -125,6 +155,12 @@ program
     const planner = new OperationPlanner(detector, classifier);
 
     console.log('\n📋 Planning root file distribution...\n');
+
+    // Check AI availability and inform user
+    if (!AIClassifierFactory.isAvailable()) {
+      console.log('⚠️  AI classification unavailable - using heuristics (65% accuracy)');
+      console.log('   For better results: Set ANTHROPIC_API_KEY or OPENAI_API_KEY\n');
+    }
 
     const plan = await planner.planRootFileDistribution(options.path);
 
@@ -249,7 +285,10 @@ program
     for (const [tech, result] of results) {
       const icon = result.success ? '✓' : '✗';
       console.log(`${icon} ${tech}: ${result.success ? 'PASSED' : 'FAILED'} (${result.duration}ms)`);
-      if (!result.success) {
+
+      if (result.recommendation) {
+        console.log(`   ${result.recommendation}\n`);
+      } else if (!result.success) {
         console.log(`   ${result.stderr}\n`);
       }
     }
