@@ -7,11 +7,11 @@ Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently o
 ## Features
 
 ✅ **Mono-repo friendly** - Respects multiple `.git` boundaries
-✅ **Secret detection** - Scans for 11 types of hardcoded secrets
+✅ **Secret detection** - Scans for 31 types of hardcoded secrets
 ✅ **100% reversible** - All operations backed up automatically
 ✅ **Build validation** - Ensures cleanup doesn't break builds
 ✅ **Dry-run mode** - Preview changes before applying
-✅ **File classification** - Intelligent heuristic-based sorting
+✅ **AI-powered classification** - 90% accuracy with Anthropic/OpenAI
 ✅ **Folder enforcement** - Maintains `scripts/` and `documents/` structure
 ✅ **YOLO mode** - Aggressive auto-cleanup for the brave
 
@@ -59,7 +59,7 @@ List all git repositories in the current directory.
 ### `devibe scan`
 Scan for hardcoded secrets (API keys, passwords, tokens).
 
-**Detects:** AWS keys, GitHub tokens, Stripe keys, Slack tokens, RSA/SSH keys, API keys, database connection strings, bearer tokens, passwords
+**Detects 31 types:** AWS, Google, Azure, Stripe, GitHub, Slack, Discord, Anthropic, OpenAI, SendGrid, Twilio, Heroku, Firebase, NPM, Docker, Cloudflare, Datadog, and more. Plus JWT tokens, private keys, webhooks, and database credentials.
 
 ### `devibe plan`
 Plan root file distribution (shows what would be done).

@@ -1,4 +1,5 @@
 import * as path from 'path';
+import * as fs from 'fs/promises';
 import type {
   FileCategory,
   FileClassification,
@@ -6,9 +7,50 @@ import type {
   ICanSuggestFileLocations,
   GitRepository,
 } from './types.js';
+import { AIClassifierFactory } from './ai-classifier.js';
 
 export class FileClassifier implements ICanClassifyFiles, ICanSuggestFileLocations {
   async classify(filePath: string, content?: string): Promise<FileClassification> {
+    // Try AI classification first if available
+    const aiProvider = AIClassifierFactory.getPreferredProvider();
+    if (aiProvider && content) {
+      try {
+        const ai = AIClassifierFactory.create(aiProvider);
+        if (ai) {
+          const result = await ai.classify(filePath, content);
+          // AI succeeded, return result
+          return result;
+        }
+      } catch (error) {
+        // AI failed, fall through to heuristics
+      }
+    }
+
+    // Load content if not provided and AI is available
+    if (!content && AIClassifierFactory.isAvailable()) {
+      try {
+        const stats = await fs.stat(filePath);
+        if (stats.size < 100000) { // Only read files < 100KB for AI
+          content = await fs.readFile(filePath, 'utf-8');
+
+          const aiProvider = AIClassifierFactory.getPreferredProvider();
+          if (aiProvider) {
+            try {
+              const ai = AIClassifierFactory.create(aiProvider);
+              if (ai) {
+                return await ai.classify(filePath, content);
+              }
+            } catch (error) {
+              // Fall through to heuristics
+            }
+          }
+        }
+      } catch {
+        // File not readable, continue with heuristics
+      }
+    }
+
+    // Fallback to heuristic classification
     const ext = path.extname(filePath);
     const basename = path.basename(filePath);
     const dirname = path.dirname(filePath);
