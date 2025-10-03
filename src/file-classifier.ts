@@ -12,10 +12,10 @@ import { AIClassifierFactory } from './ai-classifier.js';
 export class FileClassifier implements ICanClassifyFiles, ICanSuggestFileLocations {
   async classify(filePath: string, content?: string): Promise<FileClassification> {
     // Try AI classification first if available
-    const aiProvider = AIClassifierFactory.getPreferredProvider();
+    const aiProvider = await AIClassifierFactory.getPreferredProvider();
     if (aiProvider && content) {
       try {
-        const ai = AIClassifierFactory.create(aiProvider);
+        const ai = await AIClassifierFactory.create();
         if (ai) {
           const result = await ai.classify(filePath, content);
           // AI succeeded, return result
@@ -27,16 +27,16 @@ export class FileClassifier implements ICanClassifyFiles, ICanSuggestFileLocatio
     }
 
     // Load content if not provided and AI is available
-    if (!content && AIClassifierFactory.isAvailable()) {
+    if (!content && await AIClassifierFactory.isAvailable()) {
       try {
         const stats = await fs.stat(filePath);
         if (stats.size < 100000) { // Only read files < 100KB for AI
           content = await fs.readFile(filePath, 'utf-8');
 
-          const aiProvider = AIClassifierFactory.getPreferredProvider();
+          const aiProvider = await AIClassifierFactory.getPreferredProvider();
           if (aiProvider) {
             try {
-              const ai = AIClassifierFactory.create(aiProvider);
+              const ai = await AIClassifierFactory.create();
               if (ai) {
                 return await ai.classify(filePath, content);
               }
@@ -89,6 +89,54 @@ export class FileClassifier implements ICanClassifyFiles, ICanSuggestFileLocatio
   }
 
   async classifyBatch(files: string[]): Promise<FileClassification[]> {
+    // Check if AI is available for batch processing
+    const aiProvider = await AIClassifierFactory.getPreferredProvider();
+    if (!aiProvider || files.length === 0) {
+      // Fall back to individual classification
+      return Promise.all(files.map((file) => this.classify(file)));
+    }
+
+    try {
+      // Use intelligent batch processing with AI
+      const ai = await AIClassifierFactory.create();
+      if (ai && ai.classifyBatch) {
+        // Note: This simplified version doesn't have repository context
+        // For full batch processing, use IntelligentBatchProcessor instead
+        const batchFiles = await Promise.all(
+          files.map(async (filePath) => {
+            try {
+              const content = await fs.readFile(filePath, 'utf-8');
+              return {
+                fileName: path.basename(filePath),
+                filePath,
+                contentPreview: content.substring(0, 500),
+              };
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const validFiles = batchFiles.filter((f): f is NonNullable<typeof f> => f !== null);
+        if (validFiles.length === 0) {
+          return Promise.all(files.map((file) => this.classify(file)));
+        }
+
+        const results = await ai.classifyBatch(validFiles, []);
+
+        // Convert batch results to FileClassification format
+        return results.map((result) => ({
+          path: result.fileName, // Will be the file path from batchFiles
+          category: result.category,
+          confidence: result.confidence,
+          reasoning: result.reasoning,
+        }));
+      }
+    } catch (error) {
+      // AI batch failed, fall through
+    }
+
+    // Fallback to sequential processing
     return Promise.all(files.map((file) => this.classify(file)));
   }
 
@@ -105,7 +153,7 @@ export class FileClassifier implements ICanClassifyFiles, ICanSuggestFileLocatio
     let targetRepo = currentRepo;
 
     // If monorepo and AI available, try to determine the right sub-repo
-    if (repositories.length > 1 && AIClassifierFactory.isAvailable()) {
+    if (repositories.length > 1 && await AIClassifierFactory.isAvailable()) {
       const suggestedRepo = await this.suggestTargetRepository(
         file,
         repositories,
@@ -160,11 +208,11 @@ export class FileClassifier implements ICanClassifyFiles, ICanSuggestFileLocatio
     }
 
     // Use AI to analyze which repository this file belongs to
-    const aiProvider = AIClassifierFactory.getPreferredProvider();
+    const aiProvider = await AIClassifierFactory.getPreferredProvider();
     if (!aiProvider) return null;
 
     try {
-      const ai = AIClassifierFactory.create(aiProvider);
+      const ai = await AIClassifierFactory.create();
       if (!ai) return null;
 
       // Build context about available repositories

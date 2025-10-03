@@ -35,8 +35,12 @@ export interface AIProvider {
 export class AnthropicClassifier implements AIProvider {
   name = 'anthropic';
   private apiUrl = 'https://api.anthropic.com/v1/messages';
+  private modelId: string;
 
-  constructor(private apiKey: string) {}
+  constructor(private apiKey: string, modelId?: string) {
+    // Default to Haiku (cheapest) if not specified
+    this.modelId = modelId || process.env.AI_MODEL_ID || 'claude-3-haiku-20240307';
+  }
 
   async classifyBatch(
     files: BatchFileInfo[],
@@ -95,7 +99,7 @@ Respond in JSON array format with one object per file:
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
+          model: this.modelId,
           max_tokens: 4000, // Larger for batch response
           messages: [
             {
@@ -135,7 +139,7 @@ Respond in JSON array format with one object per file:
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
+          model: this.modelId,
           max_tokens: 500,
           messages: [
             {
@@ -233,7 +237,7 @@ Respond in JSON format:
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
+          model: this.modelId,
           max_tokens: 500,
           messages: [
             {
@@ -302,8 +306,12 @@ Respond in JSON format:
 export class OpenAIClassifier implements AIProvider {
   name = 'openai';
   private apiUrl = 'https://api.openai.com/v1/chat/completions';
+  private modelId: string;
 
-  constructor(private apiKey: string) {}
+  constructor(private apiKey: string, modelId?: string) {
+    // Default to GPT-4o Mini (cheapest) if not specified
+    this.modelId = modelId || process.env.AI_MODEL_ID || 'gpt-4o-mini';
+  }
 
   async classify(filePath: string, content: string): Promise<FileClassification> {
     const prompt = this.buildPrompt(filePath, content);
@@ -316,7 +324,7 @@ export class OpenAIClassifier implements AIProvider {
           'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: this.modelId,
           messages: [
             {
               role: 'system',
@@ -421,7 +429,7 @@ Respond with JSON only:
           'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: this.modelId,
           messages: [
             {
               role: 'system',
@@ -491,28 +499,92 @@ Respond with JSON only:
 }
 
 export class AIClassifierFactory {
-  static create(provider: 'anthropic' | 'openai' = 'anthropic'): AIProvider | null {
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
+  static async create(provider: 'anthropic' | 'openai' = 'anthropic', modelId?: string): Promise<AIProvider | null> {
+    // Try to get key from stored keys first, then environment
+    const { getKeyManager } = await import('./ai-key-manager.js');
+    const keyManager = getKeyManager();
+
+    const anthropicKey = await keyManager.getKeyWithFallback('anthropic');
+    const openaiKey = await keyManager.getKeyWithFallback('openai');
+    const googleKey = await keyManager.getKeyWithFallback('google');
 
     if (provider === 'anthropic' && anthropicKey) {
-      return new AnthropicClassifier(anthropicKey);
+      return new AnthropicClassifier(anthropicKey, modelId);
     }
 
     if (provider === 'openai' && openaiKey) {
-      return new OpenAIClassifier(openaiKey);
+      return new OpenAIClassifier(openaiKey, modelId);
     }
 
+    // TODO: Add Google Gemini classifier
+    // if (provider === 'google' && googleKey) {
+    //   return new GoogleClassifier(googleKey, modelId);
+    // }
+
     return null;
   }
 
-  static isAvailable(): boolean {
-    return !!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY);
+  static async isAvailable(): Promise<boolean> {
+    const { getKeyManager } = await import('./ai-key-manager.js');
+    const keyManager = getKeyManager();
+    const providers = await keyManager.getConfiguredProviders();
+
+    // Also check environment variables
+    const hasEnvKeys = !!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.GOOGLE_API_KEY);
+
+    return providers.length > 0 || hasEnvKeys;
   }
 
-  static getPreferredProvider(): 'anthropic' | 'openai' | null {
+  static async getPreferredProvider(): Promise<'anthropic' | 'openai' | 'google' | null> {
+    // Check environment variable for model selection
+    const selectedModel = process.env.AI_MODEL;
+    if (selectedModel) {
+      const { AVAILABLE_MODELS } = await import('./ai-model-config.js');
+      const model = AVAILABLE_MODELS[selectedModel];
+      if (model) return model.provider;
+    }
+
+    // Check stored keys
+    const { getKeyManager } = await import('./ai-key-manager.js');
+    const keyManager = getKeyManager();
+    const providers = await keyManager.getConfiguredProviders();
+
+    // Prefer Google (cheapest), then Anthropic, then OpenAI
+    if (providers.includes('google')) return 'google';
+    if (providers.includes('anthropic')) return 'anthropic';
+    if (providers.includes('openai')) return 'openai';
+
+    // Fallback to environment variables
     if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
     if (process.env.OPENAI_API_KEY) return 'openai';
+    if (process.env.GOOGLE_API_KEY) return 'google';
+
     return null;
+  }
+
+  /**
+   * Get the specific model to use based on config/environment
+   */
+  static async getModelConfig(): Promise<{ provider: 'anthropic' | 'openai' | 'google', modelId: string } | null> {
+    const { getModelConfig } = await import('./ai-model-config.js');
+    const config = getModelConfig();
+
+    // Check if we have a key for this provider
+    const { getKeyManager } = await import('./ai-key-manager.js');
+    const keyManager = getKeyManager();
+    const key = await keyManager.getKeyWithFallback(config.provider);
+
+    if (!key) {
+      // Try to find another available provider
+      const provider = await this.getPreferredProvider();
+      if (!provider) return null;
+
+      // Get default model for this provider
+      const { selectModel } = await import('./ai-model-config.js');
+      const fallbackModel = selectModel('best-value');
+      return { provider: fallbackModel.provider, modelId: fallbackModel.id };
+    }
+
+    return { provider: config.provider, modelId: config.id };
   }
 }
