@@ -12,6 +12,8 @@ import { AIClassifierFactory } from './ai-classifier.js';
 import { TestOrganizer, createTestOrganizer } from './test-organizer.js';
 import { RulePackValidator, formatValidationResult } from './rulepack-validator.js';
 import { RepoBestPracticesAnalyzer, formatBestPracticesReport } from './repo-best-practices.js';
+import { getKeyManager } from './ai-key-manager.js';
+import { AVAILABLE_MODELS, selectModel, compareModels, estimateCost, type ModelConfig } from './ai-model-config.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -133,15 +135,15 @@ program
     console.log(`Monorepo: ${result.hasMultipleRepos ? 'Yes' : 'No'}\n`);
 
     // Check AI availability
-    const aiAvailable = AIClassifierFactory.isAvailable();
-    const provider = AIClassifierFactory.getPreferredProvider();
+    const aiAvailable = await AIClassifierFactory.isAvailable();
+    const provider = await AIClassifierFactory.getPreferredProvider();
 
     console.log('AI Classification:');
     if (aiAvailable && provider) {
-      console.log(`  ✓ ${provider === 'anthropic' ? 'Anthropic Claude' : 'OpenAI GPT-4'} available (90% accuracy)`);
+      console.log(`  ✓ ${provider === 'anthropic' ? 'Anthropic Claude' : provider === 'google' ? 'Google Gemini' : 'OpenAI GPT-4'} available (90% accuracy)`);
     } else {
       console.log('  ⚠️  AI unavailable - using heuristics (65% accuracy)');
-      console.log('     To enable: Set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable');
+      console.log('     To enable: Run `devibe ai-key add <provider> <api-key>`');
     }
     console.log();
 
@@ -996,6 +998,356 @@ async function isIgnoredByGit(filePath: string, gitRoot: string): Promise<boolea
     return false;
   }
 }
+
+// ============================================================================
+// AI Model Management Commands
+// ============================================================================
+
+program
+  .command('ai-analyze')
+  .alias('ai')
+  .description('Analyze AI model options and get cost recommendations')
+  .option('-f, --files <count>', 'Estimated number of files to classify', '1000')
+  .action(async (options) => {
+    const fileCount = parseInt(options.files);
+    const keyManager = getKeyManager();
+
+    console.log('\n🤖 AI Model Cost Analysis\n');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+    // Check configured providers
+    const configuredProviders = await keyManager.getConfiguredProviders();
+    console.log('📋 Configured Providers:\n');
+
+    if (configuredProviders.length === 0) {
+      console.log('   ⚠️  No API keys configured yet\n');
+    } else {
+      for (const provider of configuredProviders) {
+        const key = await keyManager.getKey(provider);
+        if (key) {
+          console.log(`   ✓ ${provider.padEnd(12)} ${keyManager.maskKey(key)}`);
+        }
+      }
+      console.log('');
+    }
+
+    // Show cost comparison
+    console.log(`💰 Cost Comparison for ${fileCount.toLocaleString()} Files:\n`);
+
+    const comparison = compareModels(fileCount, 400, 100);
+
+    // Format as table
+    console.log('┌────────────────────────┬─────────────┬──────────────┬────────────┐');
+    console.log('│ Model                  │ Total Cost  │ Cost/File    │ API Calls  │');
+    console.log('├────────────────────────┼─────────────┼──────────────┼────────────┤');
+
+    comparison.slice(0, 7).forEach(c => {
+      const model = c.model.padEnd(22);
+      const cost = `$${c.totalCost.toFixed(4)}`.padEnd(11);
+      const perFile = `$${c.costPerFile.toFixed(6)}`.padEnd(12);
+      const calls = c.apiCalls.toString().padStart(10);
+      console.log(`│ ${model} │ ${cost} │ ${perFile} │ ${calls} │`);
+    });
+
+    console.log('└────────────────────────┴─────────────┴──────────────┴────────────┘\n');
+
+    // Recommendation
+    const cheapest = selectModel('cheapest');
+    const currentModel = selectModel('claude-3-5-sonnet');
+    const currentCost = estimateCost(currentModel, fileCount * 400, fileCount * 100);
+    const cheapestCost = estimateCost(cheapest, fileCount * 400, fileCount * 100);
+    const savings = currentCost - cheapestCost;
+    const savingsPercent = ((savings / currentCost) * 100).toFixed(1);
+
+    console.log('🎯 Recommendation:\n');
+    console.log(`   Use: ${cheapest.name}`);
+    console.log(`   Provider: ${cheapest.provider}`);
+    console.log(`   Context: ${cheapest.contextWindow.toLocaleString()} tokens`);
+    console.log(`   Batch size: ${cheapest.recommendedBatchSize} files per call`);
+    console.log(`   Cost: $${cheapestCost.toFixed(4)} (save $${savings.toFixed(4)} or ${savingsPercent}%)\n`);
+
+    // Check if key is configured
+    const hasKey = await keyManager.getKeyWithFallback(cheapest.provider);
+
+    if (!hasKey) {
+      console.log('⚡ Quick Setup:\n');
+      console.log(`   To use ${cheapest.name}, add your ${cheapest.provider} API key:\n`);
+      console.log(`   devibe ai-key add ${cheapest.provider} <your-api-key>\n`);
+
+      // Show where to get keys
+      const keyUrls: Record<string, string> = {
+        anthropic: 'https://console.anthropic.com/settings/keys',
+        openai: 'https://platform.openai.com/api-keys',
+        google: 'https://makersuite.google.com/app/apikey',
+      };
+
+      console.log(`   Get your key: ${keyUrls[cheapest.provider]}\n`);
+    } else {
+      console.log('✅ Ready to Use:\n');
+      console.log(`   Your ${cheapest.provider} key is configured and ready!\n`);
+    }
+
+    // Alternative options
+    console.log('📊 Other Options:\n');
+    console.log('   • Largest context:  devibe ai-key add google <key>  (Gemini: 1M-2M tokens)');
+    console.log('   • Best quality:     devibe ai-key add anthropic <key>  (Claude Opus)');
+    console.log('   • Easy to try:      devibe ai-key add anthropic <key>  (Claude Haiku - 12x cheaper)\n');
+
+    console.log('📖 Learn More:\n');
+    console.log('   • View all models:  devibe ai-models');
+    console.log('   • Manage keys:      devibe ai-key list');
+    console.log('   • Set default:      export AI_MODEL=gemini-1.5-flash\n');
+  });
+
+program
+  .command('ai-models')
+  .description('List all available AI models with details')
+  .action(async () => {
+    console.log('\n🤖 Available AI Models\n');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+    const keyManager = getKeyManager();
+
+    for (const [key, model] of Object.entries(AVAILABLE_MODELS)) {
+      const hasKey = await keyManager.getKeyWithFallback(model.provider);
+      const status = hasKey ? '✓' : '○';
+
+      console.log(`${status} ${model.name}`);
+      console.log(`   Provider: ${model.provider}`);
+      console.log(`   Context: ${model.contextWindow.toLocaleString()} tokens`);
+      console.log(`   Price: $${model.inputPricePerMillion}/M input, $${model.outputPricePerMillion}/M output`);
+      console.log(`   Batch: ~${model.recommendedBatchSize} files/call`);
+      console.log(`   Quality: ${model.quality}, Speed: ${model.speed}`);
+      console.log(`   Command: export AI_MODEL=${key}\n`);
+    }
+
+    console.log('Legend: ✓ = configured, ○ = needs API key\n');
+  });
+
+program
+  .command('ai-key')
+  .description('Manage AI API keys')
+  .argument('<action>', 'Action: add, remove, list, show, clear, or status')
+  .argument('[provider]', 'Provider: anthropic, openai, or google')
+  .argument('[key]', 'API key value')
+  .action(async (action, provider, key) => {
+    const keyManager = getKeyManager();
+
+    switch (action) {
+      case 'add':
+        if (!provider || !key) {
+          console.error('\n❌ Error: Missing provider or key');
+          console.log('\nUsage: devibe ai-key add <provider> <api-key>\n');
+          console.log('Providers: anthropic, openai, google\n');
+          console.log('Examples:');
+          console.log('  devibe ai-key add anthropic sk-ant-api03-xxx...');
+          console.log('  devibe ai-key add google AIzaSyXXX...');
+          console.log('  devibe ai-key add openai sk-xxx...\n');
+          process.exit(1);
+        }
+
+        if (!['anthropic', 'openai', 'google'].includes(provider)) {
+          console.error(`\n❌ Error: Invalid provider "${provider}"`);
+          console.log('\nValid providers: anthropic, openai, google\n');
+          process.exit(1);
+        }
+
+        // Validate key format
+        if (!keyManager.validateKeyFormat(provider as any, key)) {
+          console.error(`\n❌ Error: Invalid ${provider} API key format`);
+          console.log(`\nExpected format for ${provider}:`);
+          if (provider === 'anthropic') console.log('  sk-ant-api03-...');
+          if (provider === 'openai') console.log('  sk-...');
+          if (provider === 'google') console.log('  AIzaSy...');
+          console.log('');
+          process.exit(1);
+        }
+
+        await keyManager.setKey(provider as any, key);
+        console.log(`\n✅ ${provider} API key saved securely\n`);
+        console.log(`   Location: ${keyManager.getStorageLocation()}`);
+        console.log('   Encrypted: Yes');
+        console.log('   Git-ignored: Yes (stored in ~/.devibe/)\n');
+
+        // Show what they can do now
+        const models = Object.values(AVAILABLE_MODELS).filter(m => m.provider === provider);
+        if (models.length > 0) {
+          console.log('✨ You can now use:');
+          models.forEach(m => {
+            console.log(`   • ${m.name} (${m.quality} quality, ${m.contextWindow.toLocaleString()} tokens)`);
+          });
+          console.log('');
+        }
+        break;
+
+      case 'remove':
+        if (!provider) {
+          console.error('\n❌ Error: Missing provider');
+          console.log('\nUsage: devibe ai-key remove <provider>\n');
+          process.exit(1);
+        }
+
+        await keyManager.removeKey(provider as any);
+        console.log(`\n✅ ${provider} API key removed\n`);
+        break;
+
+      case 'list':
+        const configured = await keyManager.getConfiguredProviders();
+        console.log('\n🔑 Configured API Keys:\n');
+
+        if (configured.length === 0) {
+          console.log('   No API keys configured yet\n');
+          console.log('   Add a key: devibe ai-key add <provider> <api-key>\n');
+        } else {
+          for (const prov of configured) {
+            const storedKey = await keyManager.getKey(prov);
+            if (storedKey) {
+              console.log(`   ✓ ${prov.padEnd(12)} ${keyManager.maskKey(storedKey)}`);
+            }
+          }
+          console.log(`\n   Stored at: ${keyManager.getStorageLocation()}\n`);
+        }
+        break;
+
+      case 'show':
+        console.log('\n🔑 API Key Storage:\n');
+        console.log(`   Location: ${keyManager.getStorageLocation()}`);
+        console.log(`   Encrypted: Yes (AES-256)`);
+        console.log(`   Git-safe: Yes (stored in ~/.devibe/)`);
+        console.log(`   Permissions: 600 (owner only)\n`);
+
+        const hasStored = await keyManager.hasStoredKeys();
+        if (hasStored) {
+          const providers = await keyManager.getConfiguredProviders();
+          console.log(`   Providers: ${providers.join(', ')}\n`);
+        } else {
+          console.log('   Status: No keys stored yet\n');
+        }
+        break;
+
+      case 'clear':
+        // Clear all devibe-configured keys (reverts to environment variables)
+        const configuredCount = (await keyManager.getConfiguredProviders()).length;
+
+        if (configuredCount === 0) {
+          console.log('\n   No devibe keys to clear (already using environment variables)\n');
+          break;
+        }
+
+        await keyManager.clearAllKeys();
+        console.log(`\n✅ Cleared ${configuredCount} devibe-configured key(s)\n`);
+        console.log('   DevIbe will now use environment variables (if set):\n');
+        console.log('   • ANTHROPIC_API_KEY');
+        console.log('   • OPENAI_API_KEY');
+        console.log('   • GOOGLE_API_KEY\n');
+
+        // Show which env vars are set
+        const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
+        const hasOpenAI = !!process.env.OPENAI_API_KEY;
+        const hasGoogle = !!process.env.GOOGLE_API_KEY;
+
+        if (hasAnthropic || hasOpenAI || hasGoogle) {
+          console.log('   Environment variables found:');
+          if (hasAnthropic) console.log('   ✓ ANTHROPIC_API_KEY');
+          if (hasOpenAI) console.log('   ✓ OPENAI_API_KEY');
+          if (hasGoogle) console.log('   ✓ GOOGLE_API_KEY');
+          console.log('');
+        } else {
+          console.log('   ⚠️  No environment variables found. AI classification disabled.\n');
+        }
+        break;
+
+      case 'status':
+        // Show complete status of AI configuration
+        console.log('\n🤖 AI Configuration Status\n');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+        // DevIbe-configured keys
+        const devibeConfigured = await keyManager.getConfiguredProviders();
+        console.log('🔧 DevIbe Keys (Primary):\n');
+        if (devibeConfigured.length > 0) {
+          for (const prov of devibeConfigured) {
+            const storedKey = await keyManager.getKey(prov);
+            if (storedKey) {
+              console.log(`   ✓ ${prov.padEnd(12)} ${keyManager.maskKey(storedKey)}`);
+            }
+          }
+          console.log(`\n   Stored at: ${keyManager.getStorageLocation()}\n`);
+        } else {
+          console.log('   No keys configured\n');
+        }
+
+        // Environment variables
+        const envAnthropic = !!process.env.ANTHROPIC_API_KEY;
+        const envOpenAI = !!process.env.OPENAI_API_KEY;
+        const envGoogle = !!process.env.GOOGLE_API_KEY;
+
+        console.log('🔑 Environment Variables (Fallback):\n');
+        if (envAnthropic || envOpenAI || envGoogle) {
+          if (envAnthropic) console.log('   ✓ ANTHROPIC_API_KEY');
+          if (envOpenAI) console.log('   ✓ OPENAI_API_KEY');
+          if (envGoogle) console.log('   ✓ GOOGLE_API_KEY');
+          console.log('');
+        } else {
+          console.log('   No environment variables set\n');
+        }
+
+        // Show which will be used
+        const { getAIResolver } = await import('./ai-provider-resolver.js');
+        const resolver = getAIResolver();
+        const resolved = await resolver.resolve();
+
+        console.log('📊 Active Configuration:\n');
+        if (resolved) {
+          const sourceIcon = resolved.source === 'devibe-config' ? '🔧' : '🔑';
+          const sourceLabel = resolved.source === 'devibe-config' ? 'DevIbe key' : 'Environment';
+
+          console.log(`   ${sourceIcon} Using: ${resolved.model.name}`);
+          console.log(`   Provider: ${resolved.provider}`);
+          console.log(`   Source: ${sourceLabel}`);
+          console.log(`   Context: ${resolved.model.contextWindow.toLocaleString()} tokens`);
+          console.log(`   Cost: $${resolved.model.inputPricePerMillion}/M input\n`);
+
+          // Suggest upgrade if using environment and there's a cheaper option
+          if (resolved.source === 'environment') {
+            const cheapest = selectModel('cheapest');
+            const currentCost = resolved.model.inputPricePerMillion;
+            const cheapestCost = cheapest.inputPricePerMillion;
+
+            if (cheapestCost < currentCost) {
+              const savings = ((currentCost - cheapestCost) / currentCost * 100).toFixed(0);
+              console.log('💡 Cost Optimization Available:\n');
+              console.log(`   Switch to ${cheapest.name} and save ${savings}%`);
+              console.log(`   From: $${currentCost}/M → To: $${cheapestCost}/M\n`);
+              console.log(`   devibe ai-key add ${cheapest.provider} <your-api-key>\n`);
+              console.log(`   Get your key: https://${cheapest.provider === 'google' ? 'makersuite.google.com/app/apikey' : cheapest.provider === 'anthropic' ? 'console.anthropic.com/settings/keys' : 'platform.openai.com/api-keys'}\n`);
+            }
+          }
+        } else {
+          console.log('   ❌ No AI provider available\n');
+          console.log('   Add a key: devibe ai-key add <provider> <api-key>\n');
+        }
+
+        // Show how to revert
+        if (devibeConfigured.length > 0 && (envAnthropic || envOpenAI || envGoogle)) {
+          console.log('🔄 To Revert to Environment Variables:\n');
+          console.log('   devibe ai-key clear\n');
+        }
+
+        break;
+
+      default:
+        console.error(`\n❌ Unknown action: ${action}`);
+        console.log('\nAvailable actions:');
+        console.log('  add      Add or update an API key');
+        console.log('  remove   Remove an API key');
+        console.log('  list     List configured providers');
+        console.log('  show     Show storage information');
+        console.log('  clear    Remove all devibe keys (revert to environment)');
+        console.log('  status   Show complete AI configuration status\n');
+        process.exit(1);
+    }
+  });
 
 // Show status by default if no command specified
 if (process.argv.length === 2) {
