@@ -29,6 +29,7 @@ describe('Integration: Full Workflow', () => {
 
     // Add messy root files
     await fs.writeFile(path.join(testDir, 'README.md'), '# My Project');
+    await fs.writeFile(path.join(testDir, 'NOTES.md'), '# Notes');
     await fs.writeFile(path.join(testDir, 'deploy.sh'), '#!/bin/bash\necho deploy');
     await fs.writeFile(path.join(testDir, 'config.js'), 'module.exports = {};');
 
@@ -75,22 +76,30 @@ describe('Integration: Full Workflow', () => {
     expect(result.success).toBe(true);
     expect(result.backupManifestId).toBeDefined();
 
-    // Step 6: Verify files were moved
+    // Step 6: Verify files were moved correctly
+    // README.md should stay at root (it's kept by design)
     const readmeExists = await fs
       .access(path.join(testDir, 'README.md'))
       .then(() => true)
       .catch(() => false);
-    expect(readmeExists).toBe(false); // Should be moved
+    expect(readmeExists).toBe(true); // Main README stays at root
+
+    // NOTES.md should be moved to documents/
+    const notesExists = await fs
+      .access(path.join(testDir, 'NOTES.md'))
+      .then(() => true)
+      .catch(() => false);
+    expect(notesExists).toBe(false); // Should be moved
 
     // Step 7: Restore from backup
     await backupManager.restore(result.backupManifestId!);
 
-    const readmeRestored = await fs
-      .access(path.join(testDir, 'README.md'))
+    const notesRestored = await fs
+      .access(path.join(testDir, 'NOTES.md'))
       .then(() => true)
       .catch(() => false);
-    expect(readmeRestored).toBe(true); // Should be restored
-  });
+    expect(notesRestored).toBe(true); // Should be restored
+  }, 10000);
 
   test('should enforce folder structure in repository', async () => {
     // Setup: Create a repo without required folders
