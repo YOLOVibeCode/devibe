@@ -1,0 +1,92 @@
+name: UnVibe Repository Check
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  unvibe-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build
+      run: npm run build
+
+    - name: Run tests
+      run: npm test
+
+    - name: Install UnVibe globally
+      run: npm install -g .
+
+    - name: Scan for secrets
+      id: secret-scan
+      run: |
+        devibe scan > scan-results.txt 2>&1 || true
+        cat scan-results.txt
+
+        # Check if critical secrets were found
+        if grep -q "Critical:" scan-results.txt; then
+          CRITICAL=$(grep "Critical:" scan-results.txt | grep -oE '[0-9]+' | head -1)
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "❌ FAILED: Found $CRITICAL critical secrets!"
+            exit 1
+          fi
+        fi
+        echo "✓ No critical secrets found"
+
+    - name: Detect repositories
+      run: devibe detect
+
+    - name: Check folder structure
+      run: devibe enforce --dry-run
+
+    - name: Validate builds
+      run: devibe validate || true
+
+    - name: Repository status
+      run: devibe status
+
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const scanResults = fs.existsSync('scan-results.txt')
+            ? fs.readFileSync('scan-results.txt', 'utf8')
+            : 'No scan results available';
+
+          const comment = `## 🧹 UnVibe Check Results
+
+          ### Secret Scan
+          \`\`\`
+          ${scanResults}
+          \`\`\`
+
+          ### Status
+          ✅ All UnVibe checks passed!
+
+          ---
+          *Automated check by [UnVibe](https://github.com/your-org/devibe)*
+          `;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });

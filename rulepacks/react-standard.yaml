@@ -1,0 +1,250 @@
+# Official DeVibe Rule Pack: React Standard
+# React/Next.js best practices with component-based organization
+
+schema: "devibe-rulepack/v1"
+
+metadata:
+  name: "@devibe/react-standard"
+  version: "1.0.0"
+  author: "DeVibe Team"
+  description: "Standard React project structure with modern best practices"
+  tags: ["react", "nextjs", "typescript", "components", "frontend"]
+  license: "MIT"
+  homepage: "https://github.com/devibe/official-rulepacks"
+  compatibility:
+    devibe: ">=1.0.0"
+    technologies: ["nodejs", "typescript", "react"]
+
+extends:
+  - "@devibe/nodejs-standard"
+
+# Directory structure (extends Node.js standard)
+structure:
+  enforced: true
+
+  requiredFolders:
+    - path: "src/components"
+      description: "React components"
+      allowedCategories: ["source"]
+
+    - path: "src/hooks"
+      description: "Custom React hooks"
+      allowedCategories: ["source"]
+
+    - path: "src/utils"
+      description: "Utility functions"
+      allowedCategories: ["source"]
+
+    - path: "src/types"
+      description: "TypeScript type definitions"
+      allowedCategories: ["source"]
+
+    - path: "public"
+      description: "Static assets"
+      allowedCategories: ["asset"]
+
+  optionalFolders:
+    - path: "src/contexts"
+      description: "React context providers"
+
+    - path: "src/pages"
+      description: "Page components (Next.js or routing)"
+
+    - path: "src/app"
+      description: "App directory (Next.js 13+ App Router)"
+
+    - path: "src/styles"
+      description: "CSS/styling files"
+
+    - path: "src/store"
+      description: "State management (Redux, Zustand, etc.)"
+
+    - path: "src/services"
+      description: "API services and data fetching"
+
+    - path: "src/lib"
+      description: "Third-party library configurations"
+
+  forbiddenAtRoot:
+    - pattern: "*.tsx"
+      message: "Component files should be in src/ directory"
+
+    - pattern: "*.jsx"
+      message: "Component files should be in src/ directory"
+
+# Test organization (colocated for components)
+testOrganization:
+  enabled: true
+  strategy: "hybrid"  # Mix of colocated and separated
+  baseDirectory: "tests"
+
+  categories:
+    - name: "unit"
+      patterns:
+        - "**/__tests__/**/*.{tsx,jsx,ts,js}"
+        - "**/*.test.{tsx,jsx,ts,js}"
+        - "!**/*.integration.*"
+        - "!**/*.e2e.*"
+      targetDirectory: "src/components/__tests__"
+      description: "Component unit tests (colocated)"
+
+    - name: "integration"
+      patterns:
+        - "**/*.integration.test.{tsx,jsx,ts,js}"
+      targetDirectory: "tests/integration"
+      description: "Integration tests"
+
+    - name: "e2e"
+      patterns:
+        - "**/*.e2e.{ts,js}"
+        - "e2e/**/*.{ts,js}"
+        - "cypress/**/*.{ts,js}"
+        - "playwright/**/*.{ts,js}"
+      targetDirectory: "tests/e2e"
+      description: "End-to-end tests (Cypress/Playwright)"
+
+  technologyOverrides:
+    react:
+      strategy: "colocated"
+      patterns:
+        - "**/__tests__/**/*.{tsx,jsx}"
+
+# File classification
+fileClassification:
+  categories:
+    source:
+      extensions: [".tsx", ".jsx", ".ts", ".js"]
+      patterns:
+        - "src/**/*"
+      excludePatterns:
+        - "**/*.test.*"
+        - "**/*.spec.*"
+        - "**/__tests__/**"
+      suggestedLocation: "src/"
+
+    component:
+      extensions: [".tsx", ".jsx"]
+      patterns:
+        - "src/components/**/*"
+        - "!**/*.test.*"
+      suggestedLocation: "src/components/"
+
+    style:
+      extensions: [".css", ".scss", ".sass", ".less", ".module.css"]
+      patterns:
+        - "src/styles/**/*"
+        - "src/**/*.module.css"
+      suggestedLocation: "src/styles/"
+
+    asset:
+      extensions: [".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp", ".ico"]
+      patterns:
+        - "public/**/*"
+        - "src/assets/**/*"
+      suggestedLocation: "public/"
+
+# Technology detection
+technologies:
+  react:
+    indicators:
+      - packageDependency: "react"
+        required: true
+    structure:
+      requiredFolders: ["src/components"]
+      componentPattern: "src/components/**/*.tsx"
+
+  nextjs:
+    indicators:
+      - packageDependency: "next"
+        required: true
+    structure:
+      requiredFolders: ["public"]
+
+# Naming conventions
+namingConventions:
+  files:
+    - pattern: "**/*.component.tsx"
+      convention: "PascalCase"
+      example: "UserProfile.component.tsx"
+      message: "React components should use PascalCase"
+
+    - pattern: "src/components/**/*.tsx"
+      convention: "PascalCase"
+      example: "Button.tsx"
+      message: "Component files should use PascalCase"
+
+    - pattern: "src/hooks/**/*.ts"
+      convention: "camelCase"
+      example: "useAuth.ts"
+      message: "Hook files should start with 'use' in camelCase"
+
+    - pattern: "src/utils/**/*.ts"
+      convention: "camelCase"
+      example: "formatDate.ts"
+      message: "Utility files should use camelCase"
+
+  folders:
+    - pattern: "src/components/*"
+      convention: "PascalCase"
+      example: "UserProfile"
+      message: "Component folders should use PascalCase"
+
+    - pattern: "src/*"
+      convention: "kebab-case"
+      example: "user-management"
+
+# Custom rules
+customRules:
+  - id: "react-component-export"
+    description: "React components should use named exports"
+    filePatterns: ["src/components/**/*.tsx"]
+    severity: "warning"
+    validator: "eslint"
+
+  - id: "hook-naming"
+    description: "Custom hooks must start with 'use'"
+    filePatterns: ["src/hooks/**/*.ts"]
+    severity: "error"
+    validator: "eslint"
+
+# Git configuration
+git:
+  requiredFiles:
+    - ".gitignore"
+    - "README.md"
+    - "package.json"
+
+  suggestedIgnorePatterns:
+    - "node_modules/"
+    - ".next/"
+    - "out/"
+    - "build/"
+    - "dist/"
+    - ".env*.local"
+    - "*.log"
+    - ".DS_Store"
+
+# CI/CD checks
+cicd:
+  preCommitChecks:
+    - secretScan
+    - linting
+    - testing
+
+  prChecks:
+    - secretScan
+    - testOrganization
+    - buildValidation
+    - folderStructure
+    - namingConventions
+
+# Global ignore patterns
+ignore:
+  - "node_modules/**"
+  - ".git/**"
+  - ".next/**"
+  - "out/**"
+  - "build/**"
+  - "dist/**"
+  - "coverage/**"
+  - ".devibe/**"

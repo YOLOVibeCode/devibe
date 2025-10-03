@@ -1,0 +1,76 @@
+{
+  "name": "devibe",
+  "version": "1.2.0",
+  "description": "Repository cleanup utility for AI coding sessions - organize tests, detect secrets, enforce best practices",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "devibe": "./dist/cli.js",
+    "unvibe": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src tests --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "dev": "tsx src/cli.ts",
+    "postinstall": "bash scripts/setup-hooks.sh 2>/dev/null || true"
+  },
+  "keywords": [
+    "cleanup",
+    "repository",
+    "monorepo",
+    "test-organization",
+    "best-practices",
+    "secret-detection",
+    "rule-pack",
+    "devtools",
+    "ai",
+    "typescript",
+    "nodejs",
+    "react",
+    "python",
+    "go",
+    "java",
+    "dotnet"
+  ],
+  "author": "Ricardo Vega",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ricardovega/devibe.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ricardovega/devibe/issues"
+  },
+  "homepage": "https://github.com/ricardovega/devibe#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "rulepacks",
+    "scripts",
+    "README.md",
+    "LICENSE",
+    "RULE_PACK_SPEC.md",
+    "QUICK_REFERENCE.md"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.6.2",
+    "@typescript-eslint/eslint-plugin": "^8.45.0",
+    "@typescript-eslint/parser": "^8.45.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "eslint": "^9.36.0",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "commander": "^14.0.1"
+  }
+}
