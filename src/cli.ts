@@ -9,6 +9,9 @@ import { BuildDetector, BuildValidationService } from './build-validator.js';
 import { YoloMode } from './yolo-mode.js';
 import { ConfigManager } from './config.js';
 import { AIClassifierFactory } from './ai-classifier.js';
+import { TestOrganizer, createTestOrganizer } from './test-organizer.js';
+import { RulePackValidator, formatValidationResult } from './rulepack-validator.js';
+import { RepoBestPracticesAnalyzer, formatBestPracticesReport } from './repo-best-practices.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -16,7 +19,28 @@ const program = new Command();
 
 program
   .name('devibe')
-  .description('UnVibe - Repository cleanup utility for vibe coding sessions')
+  .description(`UnVibe - Repository cleanup utility for vibe coding sessions
+
+AI ASSISTANT GUIDE:
+When the user mentions "run devibe" or asks about cleanup:
+1. Run: devibe scan            → Check for hardcoded secrets (31 types detected)
+2. Run: devibe plan            → Preview file organization changes
+3. Run: devibe execute         → Apply changes with automatic backup
+4. Run: devibe enforce         → Enforce scripts/ and documents/ folders
+5. Run: devibe validate        → Test that builds still work
+6. Run: devibe organize-tests  → Organize tests by category (unit, e2e, etc.)
+
+Quick cleanup: devibe yolo (auto-runs all steps above)
+Before git push: devibe check-pr (simulates GitHub CI checks)
+
+Test commands:
+- devibe detect-tests         → List all test files and their categories
+- devibe organize-tests        → Move tests to organized directories
+- devibe organize-tests --report → Generate test organization report
+
+Context: This tool cleans up messy repos after AI coding sessions by organizing
+root files, enforcing folder structure, and detecting secrets - all with 100%
+reversible backups. Perfect for monorepos with multiple .git boundaries.`)
   .version('0.1.0');
 
 program
@@ -149,34 +173,121 @@ program
   .command('plan')
   .description('Plan root file distribution (dry-run)')
   .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('-v, --verbose', 'Enable verbose debug output', false)
+  .option('--no-ai', 'Skip AI classification, use fast heuristics only', false)
+  .option('--no-usage-check', 'Skip usage detection for faster processing', false)
   .action(async (options) => {
     const detector = new GitDetector();
     const classifier = new FileClassifier();
-    const planner = new OperationPlanner(detector, classifier);
+    
+    // Conditionally create usage detector
+    let usageDetector = undefined;
+    if (options.usageCheck !== false) {
+      const { UsageDetector } = await import('./usage-detector.js');
+      usageDetector = new UsageDetector();
+    }
+    
+    const planner = new OperationPlanner(detector, classifier, usageDetector);
 
     console.log('\n📋 Planning root file distribution...\n');
 
     // Check AI availability and inform user
-    if (!AIClassifierFactory.isAvailable()) {
+    if (options.ai === false) {
+      console.log('⚠️  AI classification disabled - using fast heuristics only');
+      console.log('   This will be much faster but less accurate\n');
+      // Temporarily disable AI
+      const oldAnthropicKey = process.env.ANTHROPIC_API_KEY;
+      const oldOpenAIKey = process.env.OPENAI_API_KEY;
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+    } else if (!AIClassifierFactory.isAvailable()) {
       console.log('⚠️  AI classification unavailable - using heuristics (65% accuracy)');
       console.log('   For better results: Set ANTHROPIC_API_KEY or OPENAI_API_KEY\n');
+    } else {
+      console.log('✓ AI classification enabled (this may take a few minutes for 158 files)\n');
+    }
+    
+    if (options.usageCheck === false) {
+      console.log('⚠️  Usage detection disabled - will not check if files are referenced\n');
     }
 
-    const plan = await planner.planRootFileDistribution(options.path);
+    // Progress callback
+    let lastProgressLine = '';
+    const startTime = Date.now();
+    let lastFileTime = startTime;
+    
+    const plan = await planner.planRootFileDistribution(options.path, (current, total, file) => {
+      const now = Date.now();
+      const fileTime = now - lastFileTime;
+      const avgTime = (now - startTime) / current;
+      const remaining = Math.round((avgTime * (total - current)) / 1000);
+      lastFileTime = now;
+      
+      if (options.verbose) {
+        // Verbose mode: show each file on new line with timing
+        console.log(`  [${current}/${total}] Processing: ${file} (${fileTime}ms, ~${remaining}s remaining)`);
+      } else {
+        // Normal mode: progress bar
+        const percentage = Math.round((current / total) * 100);
+        const progressBar = '█'.repeat(Math.floor(percentage / 2)) + '░'.repeat(50 - Math.floor(percentage / 2));
+        const progressLine = `\r  Progress: [${progressBar}] ${percentage}% (${current}/${total}) - ${file.substring(0, 40).padEnd(40)}`;
+        
+        // Clear previous line and write new one
+        if (lastProgressLine) {
+          process.stdout.write('\r' + ' '.repeat(lastProgressLine.length) + '\r');
+        }
+        process.stdout.write(progressLine);
+        lastProgressLine = progressLine;
+      }
+    });
+    
+    // Clear progress line and move to new line
+    if (!options.verbose && lastProgressLine) {
+      process.stdout.write('\r' + ' '.repeat(lastProgressLine.length) + '\r');
+    }
+    console.log('✓ Analysis complete!\n');
 
     if (plan.operations.length === 0) {
       console.log('✓ No operations needed. Repository is clean!\n');
       return;
     }
 
+    // Show warnings first
+    if (plan.warnings.length > 0) {
+      console.log('⚠️  Warnings:\n');
+      for (const warning of plan.warnings) {
+        console.log(`  ${warning}`);
+      }
+      console.log('');
+    }
+
     console.log(`Found ${plan.operations.length} operations:\n`);
 
-    for (const op of plan.operations) {
-      console.log(`  ${op.type.toUpperCase()}: ${path.basename(op.sourcePath)}`);
-      if (op.targetPath) {
-        console.log(`    → ${op.targetPath}`);
+    // Separate operations by type
+    const moveOps = plan.operations.filter(op => op.type === 'move');
+    const deleteOps = plan.operations.filter(op => op.type === 'delete');
+
+    if (moveOps.length > 0) {
+      console.log(`📦 MOVE Operations (${moveOps.length}):\n`);
+      for (const op of moveOps) {
+        console.log(`  ${path.basename(op.sourcePath)}`);
+        if (op.targetPath) {
+          console.log(`    → ${op.targetPath}`);
+        }
+        console.log(`    ${op.reason}`);
+        if (op.warning) {
+          console.log(`    ⚠️  ${op.warning}`);
+        }
+        console.log('');
       }
-      console.log(`    Reason: ${op.reason}\n`);
+    }
+
+    if (deleteOps.length > 0) {
+      console.log(`🗑️  DELETE Operations (${deleteOps.length}):\n`);
+      for (const op of deleteOps) {
+        console.log(`  ${path.basename(op.sourcePath)}`);
+        console.log(`    ${op.reason}\n`);
+      }
     }
 
     console.log(`Estimated duration: ${plan.estimatedDuration}ms`);
@@ -189,20 +300,83 @@ program
   .description('Execute planned operations')
   .option('-p, --path <path>', 'Repository path', process.cwd())
   .option('--dry-run', 'Show what would be done without making changes', false)
+  .option('-v, --verbose', 'Enable verbose debug output', false)
+  .option('--no-ai', 'Skip AI classification, use fast heuristics only', false)
+  .option('--no-usage-check', 'Skip usage detection for faster processing', false)
   .action(async (options) => {
     const detector = new GitDetector();
     const classifier = new FileClassifier();
-    const planner = new OperationPlanner(detector, classifier);
+    
+    // Conditionally create usage detector
+    let usageDetector = undefined;
+    if (options.usageCheck !== false) {
+      const { UsageDetector } = await import('./usage-detector.js');
+      usageDetector = new UsageDetector();
+    }
+    
+    const planner = new OperationPlanner(detector, classifier, usageDetector);
     const backupManager = new BackupManager(path.join(options.path, '.unvibe', 'backups'));
     const executor = new OperationExecutor(backupManager);
 
     console.log(`\n${options.dryRun ? '🔍 DRY RUN: ' : '⚡ '}Executing operations...\n`);
+    
+    // Handle AI flag
+    if (options.ai === false) {
+      console.log('⚠️  AI classification disabled - using fast heuristics only\n');
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+    }
+    
+    if (options.usageCheck === false) {
+      console.log('⚠️  Usage detection disabled\n');
+    }
 
-    const plan = await planner.planRootFileDistribution(options.path);
+    // Progress callback  
+    let lastProgressLine = '';
+    const startTime = Date.now();
+    let lastFileTime = startTime;
+    
+    const plan = await planner.planRootFileDistribution(options.path, (current, total, file) => {
+      const now = Date.now();
+      const fileTime = now - lastFileTime;
+      const avgTime = (now - startTime) / current;
+      const remaining = Math.round((avgTime * (total - current)) / 1000);
+      lastFileTime = now;
+      
+      if (options.verbose) {
+        // Verbose mode: show each file on new line with timing
+        console.log(`  [${current}/${total}] Analyzing: ${file} (${fileTime}ms, ~${remaining}s remaining)`);
+      } else {
+        // Normal mode: progress bar
+        const percentage = Math.round((current / total) * 100);
+        const progressBar = '█'.repeat(Math.floor(percentage / 2)) + '░'.repeat(50 - Math.floor(percentage / 2));
+        const progressLine = `\r  Analyzing: [${progressBar}] ${percentage}% (${current}/${total}) - ${file.substring(0, 40).padEnd(40)}`;
+        
+        if (lastProgressLine) {
+          process.stdout.write('\r' + ' '.repeat(lastProgressLine.length) + '\r');
+        }
+        process.stdout.write(progressLine);
+        lastProgressLine = progressLine;
+      }
+    });
+    
+    if (!options.verbose && lastProgressLine) {
+      process.stdout.write('\r' + ' '.repeat(lastProgressLine.length) + '\r');
+    }
+    console.log('✓ Analysis complete!\n');
 
     if (plan.operations.length === 0) {
       console.log('✓ No operations to execute.\n');
       return;
+    }
+
+    // Show warnings before executing
+    if (plan.warnings.length > 0) {
+      console.log('⚠️  Warnings:\n');
+      for (const warning of plan.warnings) {
+        console.log(`  ${warning}`);
+      }
+      console.log('');
     }
 
     const result = await executor.execute(plan, options.dryRun);
@@ -424,6 +598,198 @@ program
   });
 
 program
+  .command('organize-tests')
+  .description('Organize test files by category (unit, integration, e2e, etc.)')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('--dry-run', 'Preview changes without executing')
+  .option('--report', 'Generate a report of current test organization')
+  .action(async (options) => {
+    console.log('\n🧪 Test Organization\n');
+
+    const config = await ConfigManager.load(options.path);
+    const testOrganizer = createTestOrganizer(config);
+
+    if (!testOrganizer) {
+      console.log('❌ Test organization is not configured.');
+      console.log('   Run "devibe init" to create a configuration file.\n');
+      return;
+    }
+
+    // Generate report if requested
+    if (options.report) {
+      console.log('Analyzing test files...\n');
+      const report = await testOrganizer.generateReport(options.path);
+      console.log(report);
+      return;
+    }
+
+    // Plan test organization
+    console.log('Planning test organization...\n');
+    const plan = await testOrganizer.planTestOrganization(options.path);
+
+    if (plan.operations.length === 0) {
+      console.log('✓ All tests are already organized!\n');
+      return;
+    }
+
+    console.log(`Found ${plan.operations.length} test files to organize:\n`);
+
+    // Group operations by target directory
+    const byDirectory = new Map<string, typeof plan.operations>();
+    for (const op of plan.operations) {
+      const targetDir = path.dirname(op.targetPath!);
+      if (!byDirectory.has(targetDir)) {
+        byDirectory.set(targetDir, []);
+      }
+      byDirectory.get(targetDir)!.push(op);
+    }
+
+    // Display grouped operations
+    for (const [targetDir, ops] of byDirectory.entries()) {
+      console.log(`📁 ${targetDir} (${ops.length} files)`);
+      for (const op of ops.slice(0, 5)) {
+        const fileName = path.basename(op.sourcePath);
+        console.log(`   • ${fileName}`);
+      }
+      if (ops.length > 5) {
+        console.log(`   ... and ${ops.length - 5} more`);
+      }
+      console.log();
+    }
+
+    if (options.dryRun) {
+      console.log('🔍 Dry run mode - no changes made.\n');
+      console.log('Run without --dry-run to execute these operations.\n');
+      return;
+    }
+
+    // Execute the plan
+    const backupManager = new BackupManager(path.join(options.path, '.unvibe', 'backups'));
+    const executor = new OperationExecutor(backupManager);
+
+    console.log('Executing test organization...\n');
+    const result = await executor.execute(plan, false);
+
+    if (result.success) {
+      console.log(`✅ Successfully organized ${result.operationsCompleted} test files!\n`);
+      if (result.backupManifestId) {
+        console.log(`📦 Backup: ${result.backupManifestId}`);
+        console.log(`   Restore with: devibe restore ${result.backupManifestId}\n`);
+      }
+    } else {
+      console.log(`⚠️  Completed with errors:\n`);
+      for (const error of result.errors) {
+        console.log(`   ❌ ${error}`);
+      }
+      console.log();
+    }
+  });
+
+program
+  .command('detect-tests')
+  .description('Detect all test files in the repository')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (options) => {
+    console.log('\n🔍 Detecting test files...\n');
+
+    const config = await ConfigManager.load(options.path);
+    const testOrganizer = createTestOrganizer(config);
+
+    if (!testOrganizer) {
+      console.log('❌ Test organization is not configured.\n');
+      return;
+    }
+
+    const testFiles = await testOrganizer.detectTestFiles(options.path);
+    console.log(`Found ${testFiles.length} test files:\n`);
+
+    for (const testFile of testFiles) {
+      const category = await testOrganizer.categorizeTest(testFile);
+      console.log(`[${category.toUpperCase().padEnd(12)}] ${testFile}`);
+    }
+    console.log();
+  });
+
+program
+  .command('validate-rulepack')
+  .description('Validate a rule pack file against the specification')
+  .argument('<file>', 'Path to rule pack YAML/JSON file')
+  .action(async (file) => {
+    console.log('\n🔍 Validating Rule Pack...\n');
+
+    try {
+      // Read and parse the rule pack
+      const content = await fs.readFile(file, 'utf-8');
+      let rulePack;
+
+      if (file.endsWith('.yaml') || file.endsWith('.yml')) {
+        // For YAML, we'd need a YAML parser (js-yaml)
+        // For now, show helpful message
+        console.log('ℹ️  YAML support requires js-yaml package');
+        console.log('   For now, please use JSON format or convert YAML to JSON\n');
+        return;
+      } else {
+        rulePack = JSON.parse(content);
+      }
+
+      // Validate
+      const validator = new RulePackValidator();
+      const result = await validator.validate(rulePack);
+
+      // Format and display
+      console.log(formatValidationResult(result));
+
+      if (!result.valid) {
+        process.exit(1);
+      }
+    } catch (error: any) {
+      console.log(`❌ Failed to validate rule pack: ${error.message}\n`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('best-practices')
+  .description('Analyze repository against industry best practices')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    console.log('\n📊 Analyzing Repository Best Practices...\n');
+
+    const analyzer = new RepoBestPracticesAnalyzer();
+    const report = await analyzer.analyze(options.path);
+
+    if (options.json) {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      console.log(formatBestPracticesReport(report));
+
+      // Summary recommendations
+      if (report.score < 90) {
+        console.log('\n💡 Quick Wins (Auto-fixable):');
+        const autoFixable = report.checks.filter(c => !c.passed && c.autoFixable);
+        autoFixable.slice(0, 5).forEach(check => {
+          console.log(`   • ${check.name}`);
+          if (check.recommendation) {
+            console.log(`     ${check.recommendation}`);
+          }
+        });
+        console.log();
+      }
+
+      // Exit code based on critical issues
+      if (report.summary.critical > 0) {
+        console.log('❌ Fix critical issues before proceeding\n');
+        process.exit(1);
+      } else if (report.score >= 75) {
+        console.log('✅ Repository meets minimum best practices\n');
+      } else {
+        console.log('⚠️  Consider addressing high-priority issues\n');
+      }
+    }
+  });
+
+program
   .command('check-pr')
   .description('Check if repository is ready for PR/push to main')
   .option('-p, --path <path>', 'Repository path', process.cwd())
@@ -522,11 +888,24 @@ async function findSourceFiles(dir: string): Promise<string[]> {
   const files: string[] = [];
   const extensions = ['.js', '.ts', '.jsx', '.tsx', '.py', '.go', '.java', '.env'];
 
+  // Detect git repositories to find .gitignore scope
+  const detector = new GitDetector();
+  const repoResult = await detector.detectRepositories(dir);
+  const gitRoots = repoResult.repositories.map(r => r.path);
+
   async function scan(currentDir: string): Promise<void> {
     const entries = await fs.readdir(currentDir, { withFileTypes: true });
 
     for (const entry of entries) {
       const fullPath = path.join(currentDir, entry.name);
+
+      // Find the closest git repository root for this file
+      const gitRoot = findClosestGitRoot(fullPath, gitRoots);
+
+      // Skip if matches .gitignore from the appropriate repository
+      if (gitRoot && await isIgnoredByGit(fullPath, gitRoot)) {
+        continue;
+      }
 
       if (entry.isDirectory()) {
         if (
@@ -548,6 +927,74 @@ async function findSourceFiles(dir: string): Promise<string[]> {
 
   await scan(dir);
   return files;
+}
+
+function findClosestGitRoot(filePath: string, gitRoots: string[]): string | null {
+  // Find the git root that contains this file and is the deepest (most specific)
+  let closest: string | null = null;
+  let maxDepth = -1;
+
+  for (const root of gitRoots) {
+    if (filePath.startsWith(root)) {
+      const depth = root.split(path.sep).length;
+      if (depth > maxDepth) {
+        maxDepth = depth;
+        closest = root;
+      }
+    }
+  }
+
+  return closest;
+}
+
+async function isIgnoredByGit(filePath: string, gitRoot: string): Promise<boolean> {
+  const gitignorePath = path.join(gitRoot, '.gitignore');
+
+  try {
+    const content = await fs.readFile(gitignorePath, 'utf-8');
+    const patterns = content
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('#'));
+
+    // Get path relative to git root
+    const relativePath = path.relative(gitRoot, filePath);
+
+    for (const pattern of patterns) {
+      // Simple pattern matching (supports * wildcards and exact matches)
+      const regex = new RegExp(
+        '^' + pattern
+          .replace(/\./g, '\\.')
+          .replace(/\*/g, '.*')
+          .replace(/\?/g, '.') +
+        '(/.*)?$'
+      );
+
+      if (regex.test(relativePath)) {
+        return true;
+      }
+
+      // Also check basename for patterns without /
+      if (!pattern.includes('/')) {
+        const basename = path.basename(relativePath);
+        const basenameRegex = new RegExp(
+          '^' + pattern
+            .replace(/\./g, '\\.')
+            .replace(/\*/g, '.*')
+            .replace(/\?/g, '.') +
+          '$'
+        );
+        if (basenameRegex.test(basename)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  } catch {
+    // No .gitignore file or can't read it
+    return false;
+  }
 }
 
 // Show status by default if no command specified

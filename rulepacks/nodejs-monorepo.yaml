@@ -1,0 +1,277 @@
+# Official DeVibe Rule Pack: Node.js Monorepo (NX/Turborepo style)
+# Enterprise monorepo structure following NX conventions
+
+schema: "devibe-rulepack/v1"
+
+metadata:
+  name: "@devibe/nodejs-monorepo"
+  version: "1.0.0"
+  author: "DeVibe Team"
+  description: "Monorepo structure following NX and Turborepo best practices"
+  tags: ["nodejs", "monorepo", "nx", "turborepo", "lerna", "workspace"]
+  license: "MIT"
+  homepage: "https://github.com/devibe/official-rulepacks"
+  compatibility:
+    devibe: ">=1.0.0"
+    technologies: ["nodejs", "monorepo"]
+
+extends:
+  - "@devibe/nodejs-standard"
+
+# Directory structure
+structure:
+  enforced: true
+
+  requiredFolders:
+    - path: "apps"
+      description: "Application packages (deployable units)"
+      allowedCategories: ["source"]
+
+    - path: "packages"
+      description: "Shared library packages"
+      allowedCategories: ["source"]
+
+    - path: "tools"
+      description: "Build and development tools"
+      allowedCategories: ["script", "config"]
+
+    - path: "docs"
+      description: "Monorepo documentation"
+      allowedCategories: ["documentation"]
+
+  optionalFolders:
+    - path: "libs"
+      description: "Alternative to packages/ (NX convention)"
+
+    - path: "scripts"
+      description: "Shared utility scripts"
+
+    - path: "config"
+      description: "Shared configuration files"
+
+    - path: ".github"
+      description: "GitHub workflows and templates"
+
+  forbiddenAtRoot:
+    - pattern: "*.ts"
+      message: "Source files must be in apps/ or packages/"
+
+    - pattern: "*.tsx"
+      message: "Source files must be in apps/ or packages/"
+
+    - pattern: "*.test.ts"
+      message: "Test files must be in package-specific tests/ directories"
+
+# Monorepo configuration
+monorepo:
+  enabled: true
+  structure: "nx"  # Can be: nx, lerna, turborepo, pnpm-workspace
+
+  packageRules:
+    # Application packages
+    - pattern: "apps/*"
+      type: "application"
+      requiredFolders:
+        - "src"
+        - "tests"
+      requiredFiles:
+        - "package.json"
+        - "README.md"
+        - "tsconfig.json"
+
+    # Library packages
+    - pattern: "packages/*"
+      type: "library"
+      requiredFolders:
+        - "src"
+        - "tests"
+      requiredFiles:
+        - "package.json"
+        - "README.md"
+        - "tsconfig.json"
+
+    # Alternative libs/ structure (NX)
+    - pattern: "libs/*"
+      type: "library"
+      requiredFolders:
+        - "src"
+      requiredFiles:
+        - "project.json"  # NX project config
+
+    # Tools packages
+    - pattern: "tools/*"
+      type: "tool"
+      requiredFiles:
+        - "package.json"
+
+# Test organization (per-package)
+testOrganization:
+  enabled: true
+  strategy: "separated"
+  baseDirectory: "tests"  # Relative to each package
+
+  categories:
+    - name: "unit"
+      patterns:
+        - "**/tests/unit/**/*.test.{ts,js}"
+        - "**/*.test.{ts,js}"
+        - "!**/*.integration.*"
+        - "!**/*.e2e.*"
+      targetDirectory: "tests/unit"
+      description: "Package-level unit tests"
+
+    - name: "integration"
+      patterns:
+        - "**/tests/integration/**/*.test.{ts,js}"
+        - "**/*.integration.test.{ts,js}"
+      targetDirectory: "tests/integration"
+      description: "Cross-package integration tests"
+
+    - name: "e2e"
+      patterns:
+        - "**/tests/e2e/**/*.{ts,js}"
+        - "**/*.e2e.{ts,js}"
+      targetDirectory: "tests/e2e"
+      description: "End-to-end application tests"
+
+# File classification
+fileClassification:
+  categories:
+    source:
+      extensions: [".ts", ".js", ".tsx", ".jsx"]
+      patterns:
+        - "apps/*/src/**/*"
+        - "packages/*/src/**/*"
+        - "libs/*/src/**/*"
+      excludePatterns:
+        - "**/*.test.*"
+        - "**/*.spec.*"
+
+    config:
+      extensions: [".json", ".yaml", ".yml"]
+      patterns:
+        - "*/package.json"
+        - "*/tsconfig.json"
+        - "*/project.json"
+        - "nx.json"
+        - "lerna.json"
+        - "turbo.json"
+        - "pnpm-workspace.yaml"
+      suggestedLocation: "config/"
+
+# Technology detection
+technologies:
+  nx:
+    indicators:
+      - file: "nx.json"
+        required: true
+        type: "file"
+    structure:
+      requiredFolders: ["apps", "libs"]
+
+  turborepo:
+    indicators:
+      - file: "turbo.json"
+        required: true
+        type: "file"
+    structure:
+      requiredFolders: ["apps", "packages"]
+
+  lerna:
+    indicators:
+      - file: "lerna.json"
+        required: true
+        type: "file"
+    structure:
+      requiredFolders: ["packages"]
+
+  pnpm-workspace:
+    indicators:
+      - file: "pnpm-workspace.yaml"
+        required: true
+        type: "file"
+
+# Naming conventions
+namingConventions:
+  folders:
+    - pattern: "apps/*"
+      convention: "kebab-case"
+      example: "web-app"
+      message: "Application names should use kebab-case"
+
+    - pattern: "packages/*"
+      convention: "kebab-case"
+      example: "shared-utils"
+      message: "Package names should use kebab-case"
+
+    - pattern: "libs/*"
+      convention: "kebab-case"
+      example: "ui-components"
+      message: "Library names should use kebab-case (NX convention)"
+
+  files:
+    - pattern: "apps/*/src/**/*.ts"
+      convention: "kebab-case"
+      example: "user-service.ts"
+
+    - pattern: "packages/*/src/**/*.ts"
+      convention: "kebab-case"
+      example: "index.ts"
+
+# Git configuration
+git:
+  requiredFiles:
+    - ".gitignore"
+    - "README.md"
+    - "package.json"
+
+  suggestedIgnorePatterns:
+    - "node_modules/"
+    - "dist/"
+    - "build/"
+    - ".turbo/"
+    - ".nx/"
+    - "coverage/"
+    - ".env"
+    - "*.log"
+
+# CI/CD configuration
+cicd:
+  preCommitChecks:
+    - secretScan
+    - linting
+
+  prChecks:
+    - secretScan
+    - testOrganization
+    - buildValidation
+    - folderStructure
+    - namingConventions
+
+# Custom rules
+customRules:
+  - id: "package-naming"
+    description: "Package names should be scoped (@org/package-name)"
+    filePatterns: ["apps/*/package.json", "packages/*/package.json"]
+    severity: "warning"
+    validator: "custom"
+
+  - id: "workspace-protocol"
+    description: "Use workspace:* protocol for internal dependencies"
+    filePatterns: ["*/package.json"]
+    severity: "info"
+    validator: "custom"
+
+# Global ignore patterns
+ignore:
+  - "node_modules/**"
+  - ".git/**"
+  - "dist/**"
+  - "build/**"
+  - ".turbo/**"
+  - ".nx/**"
+  - "coverage/**"
+  - ".devibe/**"
+  - "apps/*/dist/**"
+  - "packages/*/dist/**"
+  - "libs/*/dist/**"

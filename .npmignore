@@ -1,0 +1,65 @@
+# Source files (compiled to dist/)
+src/
+tests/
+*.test.ts
+*.spec.ts
+
+# Development files
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# Configuration files
+tsconfig.json
+vitest.config.ts
+eslint.config.js
+.eslintrc.js
+.prettierrc
+.editorconfig
+
+# Build artifacts
+*.tsbuildinfo
+coverage/
+.nyc_output/
+
+# Documentation (include only essential docs)
+design/
+examples/
+ARCHITECTURE.md
+IMPLEMENTATION_SUMMARY.md
+FEATURE_COMPLETE.md
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Development dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Backup files
+*.backup
+*.bak
+
+# Test files
+__tests__/
+
+# Temporary files
+tmp/
+temp/

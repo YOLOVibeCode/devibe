@@ -92,26 +92,103 @@ export class FileClassifier implements ICanClassifyFiles, ICanSuggestFileLocatio
     return Promise.all(files.map((file) => this.classify(file)));
   }
 
-  suggestLocation(
+  async suggestLocation(
     file: FileClassification,
-    repositories: GitRepository[]
-  ): string | null {
-    // For now, return null - this will be enhanced with AI
-    // Heuristic: suggest based on file category
-    const repo = repositories.find((r) => file.path.startsWith(r.path));
-    if (!repo) return null;
+    repositories: GitRepository[],
+    content?: string
+  ): Promise<string | null> {
+    // Find which repository this file currently belongs to
+    const currentRepo = repositories.find((r) => file.path.startsWith(r.path));
+    if (!currentRepo) return null;
 
+    // Determine target repository (might be different in monorepo)
+    let targetRepo = currentRepo;
+
+    // If monorepo and AI available, try to determine the right sub-repo
+    if (repositories.length > 1 && AIClassifierFactory.isAvailable()) {
+      const suggestedRepo = await this.suggestTargetRepository(
+        file,
+        repositories,
+        content
+      );
+      if (suggestedRepo) {
+        targetRepo = suggestedRepo;
+      }
+    }
+
+    // Suggest location within target repository
     switch (file.category) {
       case 'documentation':
-        return path.join(repo.path, 'documents', path.basename(file.path));
-      case 'script':
-        return path.join(repo.path, 'scripts', path.basename(file.path));
+        return path.join(targetRepo.path, 'documents', path.basename(file.path));
+      case 'script': {
+        // Check if this is a test script
+        const basename = path.basename(file.path).toLowerCase();
+        if (basename.startsWith('test-') || basename.includes('-test') || 
+            basename.startsWith('check-') || basename.startsWith('debug-')) {
+          // Test scripts go to tests directory
+          return path.join(targetRepo.path, 'tests', path.basename(file.path));
+        }
+        // Regular scripts go to scripts directory
+        return path.join(targetRepo.path, 'scripts', path.basename(file.path));
+      }
       case 'test':
-        return path.join(repo.path, 'tests', path.basename(file.path));
+        return path.join(targetRepo.path, 'tests', path.basename(file.path));
       case 'source':
-        return path.join(repo.path, 'src', path.basename(file.path));
+        return path.join(targetRepo.path, 'src', path.basename(file.path));
       default:
         return null;
+    }
+  }
+
+  private async suggestTargetRepository(
+    file: FileClassification,
+    repositories: GitRepository[],
+    content?: string
+  ): Promise<GitRepository | null> {
+    // Load file content if not provided
+    if (!content) {
+      try {
+        const stats = await fs.stat(file.path);
+        if (stats.size < 100000) {
+          content = await fs.readFile(file.path, 'utf-8');
+        } else {
+          return null; // File too large
+        }
+      } catch {
+        return null;
+      }
+    }
+
+    // Use AI to analyze which repository this file belongs to
+    const aiProvider = AIClassifierFactory.getPreferredProvider();
+    if (!aiProvider) return null;
+
+    try {
+      const ai = AIClassifierFactory.create(aiProvider);
+      if (!ai) return null;
+
+      // Build context about available repositories
+      const repoNames = repositories.map(r => ({
+        name: path.basename(r.path),
+        path: r.path,
+        isRoot: r.isRoot
+      }));
+
+      const result = await ai.suggestRepository(
+        file.path,
+        content,
+        repoNames
+      );
+
+      // Find matching repository
+      const targetRepo = repositories.find(
+        r => path.basename(r.path) === result.repositoryName ||
+             r.path === result.repositoryName
+      );
+
+      return targetRepo || null;
+    } catch {
+      return null; // AI analysis failed, use current repo
     }
   }
 

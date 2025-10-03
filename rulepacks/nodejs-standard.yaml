@@ -1,0 +1,200 @@
+# Official DeVibe Rule Pack: Node.js Standard
+# Following Node.js best practices and common conventions
+
+schema: "devibe-rulepack/v1"
+
+metadata:
+  name: "@devibe/nodejs-standard"
+  version: "1.0.0"
+  author: "DeVibe Team"
+  description: "Standard Node.js project structure following community best practices"
+  tags: ["nodejs", "javascript", "typescript", "standard"]
+  license: "MIT"
+  homepage: "https://github.com/devibe/official-rulepacks"
+  compatibility:
+    devibe: ">=1.0.0"
+    technologies: ["nodejs", "typescript", "javascript"]
+
+# Directory structure
+structure:
+  enforced: true
+
+  requiredFolders:
+    - path: "src"
+      description: "Source code directory"
+      allowedCategories: ["source"]
+
+    - path: "tests"
+      description: "Test files (organized by type)"
+      allowedCategories: ["test"]
+
+    - path: "docs"
+      description: "Documentation"
+      allowedCategories: ["documentation"]
+
+  optionalFolders:
+    - path: "scripts"
+      description: "Build and utility scripts"
+
+    - path: "config"
+      description: "Configuration files"
+
+    - path: "dist"
+      description: "Build output (should be gitignored)"
+
+    - path: "lib"
+      description: "Compiled library output"
+
+  forbiddenAtRoot:
+    - pattern: "*.test.js"
+      message: "Test files should be in tests/ directory"
+
+    - pattern: "*.test.ts"
+      message: "Test files should be in tests/ directory"
+
+    - pattern: "*.spec.js"
+      message: "Spec files should be in tests/ directory"
+
+    - pattern: "*.spec.ts"
+      message: "Spec files should be in tests/ directory"
+
+# Test organization
+testOrganization:
+  enabled: true
+  strategy: "separated"
+  baseDirectory: "tests"
+
+  categories:
+    - name: "unit"
+      patterns:
+        - "**/*.test.{ts,js}"
+        - "**/*.spec.{ts,js}"
+        - "!**/*.integration.*"
+        - "!**/*.e2e.*"
+      targetDirectory: "tests/unit"
+      description: "Unit tests - isolated component testing"
+
+    - name: "integration"
+      patterns:
+        - "**/*.integration.test.{ts,js}"
+        - "**/*.integration.spec.{ts,js}"
+      targetDirectory: "tests/integration"
+      description: "Integration tests - component interaction testing"
+
+    - name: "e2e"
+      patterns:
+        - "**/*.e2e.{ts,js}"
+        - "**/*.e2e-spec.{ts,js}"
+        - "e2e/**/*.{ts,js}"
+      targetDirectory: "tests/e2e"
+      description: "End-to-end tests"
+
+# File classification
+fileClassification:
+  categories:
+    source:
+      extensions: [".ts", ".js", ".mjs", ".cjs"]
+      patterns:
+        - "src/**/*"
+        - "lib/**/*"
+      excludePatterns:
+        - "**/*.test.*"
+        - "**/*.spec.*"
+      suggestedLocation: "src/"
+
+    config:
+      extensions: [".json", ".yaml", ".yml", ".toml"]
+      patterns:
+        - "*config*"
+        - ".*rc"
+        - "tsconfig.json"
+        - "package.json"
+      suggestedLocation: "config/"
+
+    script:
+      extensions: [".sh", ".bash"]
+      patterns:
+        - "scripts/**/*"
+      suggestedLocation: "scripts/"
+
+    documentation:
+      extensions: [".md", ".mdx"]
+      patterns:
+        - "docs/**/*"
+        - "README.md"
+        - "CHANGELOG.md"
+        - "CONTRIBUTING.md"
+      suggestedLocation: "docs/"
+
+# Technology detection
+technologies:
+  nodejs:
+    indicators:
+      - file: "package.json"
+        required: true
+        type: "file"
+    structure:
+      requiredFolders: ["src"]
+      preferredPackageManager: "npm"
+
+  typescript:
+    indicators:
+      - file: "tsconfig.json"
+        required: true
+        type: "file"
+    structure:
+      requiredFolders: ["src"]
+
+# Naming conventions
+namingConventions:
+  files:
+    - pattern: "**/*.ts"
+      convention: "kebab-case"
+      example: "user-service.ts"
+
+    - pattern: "**/*.test.ts"
+      convention: "kebab-case"
+      example: "user-service.test.ts"
+
+  folders:
+    - pattern: "src/*"
+      convention: "kebab-case"
+      example: "user-management"
+
+# Git configuration
+git:
+  requiredFiles:
+    - ".gitignore"
+    - "README.md"
+    - "package.json"
+
+  suggestedIgnorePatterns:
+    - "node_modules/"
+    - "dist/"
+    - "build/"
+    - "coverage/"
+    - ".env"
+    - ".env.local"
+    - "*.log"
+
+# CI/CD checks
+cicd:
+  preCommitChecks:
+    - secretScan
+    - linting
+
+  prChecks:
+    - secretScan
+    - testOrganization
+    - buildValidation
+    - folderStructure
+
+# Global ignore patterns
+ignore:
+  - "node_modules/**"
+  - ".git/**"
+  - "dist/**"
+  - "build/**"
+  - "coverage/**"
+  - ".devibe/**"
+  - "*.log"

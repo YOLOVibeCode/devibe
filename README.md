@@ -13,15 +13,33 @@ Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently o
 ✅ **Dry-run mode** - Preview changes before applying
 ✅ **AI-powered classification** - 90% accuracy with Anthropic/OpenAI
 ✅ **Folder enforcement** - Maintains `scripts/` and `documents/` structure
+✅ **Test organization** - Organize tests by category (unit, e2e, integration)
+✅ **Rule packs** - Shareable directory structure standards
 ✅ **YOLO mode** - Aggressive auto-cleanup for the brave
 
 ## Installation
 
+### From npm (Recommended)
+
 ```bash
+# Install globally
 npm install -g devibe
-# or
+
+# Or use with npx (no installation)
 npx devibe
 ```
+
+### Verify Installation
+
+```bash
+devibe --version
+# Should show: 1.2.0
+
+devibe --help
+# Shows all available commands
+```
+
+**NPM Package**: [https://www.npmjs.com/package/devibe](https://www.npmjs.com/package/devibe)
 
 ## Quick Start
 
@@ -46,6 +64,12 @@ devibe validate
 
 # YOLO mode (aggressive cleanup)
 devibe yolo
+
+# Check repository best practices
+devibe best-practices
+
+# Validate a rule pack file
+devibe validate-rulepack my-pack.json
 ```
 
 ## Commands
@@ -97,6 +121,129 @@ YOLO mode: Run full cleanup workflow automatically.
 
 ### `devibe init`
 Initialize UnVibe configuration file.
+
+### `devibe organize-tests`
+Organize test files by category (unit, integration, e2e, etc.).
+
+```bash
+devibe organize-tests              # Move tests to organized directories
+devibe organize-tests --dry-run    # Preview changes
+devibe organize-tests --report     # Generate organization report
+```
+
+### `devibe detect-tests`
+List all test files and their categories.
+
+### `devibe best-practices`
+Analyze repository against industry best practices (40+ automated checks).
+
+```bash
+devibe best-practices              # Run analysis
+devibe best-practices --json       # Output JSON for CI/CD
+```
+
+**Checks include:**
+- 📚 Documentation (README, CHANGELOG, API docs)
+- 🔧 Git (.gitignore, .gitattributes)
+- 🔒 Security (.env management, lockfiles, SECURITY.md)
+- 📁 Structure (src/, tests/, no root files)
+- 📦 Dependencies (engines, no wildcards)
+- 🚀 CI/CD (GitHub Actions, pre-commit hooks)
+- ⚖️ Licensing (LICENSE file, package.json)
+- ✨ Quality (ESLint, Prettier, TypeScript, EditorConfig)
+
+**Scoring:** Weighted 0-100 score with severity levels (critical, high, medium, low)
+
+### `devibe validate-rulepack`
+Validate a rule pack file against the specification.
+
+```bash
+devibe validate-rulepack my-pack.json
+```
+
+Provides clear, helpful error messages with:
+- JSONPath location (`$.metadata.name`)
+- Expected format with examples
+- Error codes for automation
+- Warnings for best practices
+
+## Test Organization
+
+DeVibe can automatically organize your tests into logical categories:
+
+```
+tests/
+├── unit/              # Unit tests
+├── integration/       # Integration tests
+├── e2e/              # End-to-end tests
+├── tdd/              # TDD specs
+├── functional/       # Functional tests
+├── performance/      # Performance tests
+├── acceptance/       # Acceptance tests
+└── contract/         # Contract tests
+```
+
+**Supports 6 technologies:**
+- Node.js/TypeScript (`.test.ts`, `.spec.ts`)
+- React (`.test.tsx`, `__tests__/`)
+- Python (`test_*.py`, `*_test.py`)
+- Go (`*_test.go`)
+- Java (`*Test.java`, `*IT.java`)
+- .NET/C# (`*Tests.cs`, `*Test.cs`, xUnit/NUnit/MSTest)
+
+## Rule Packs
+
+Share and reuse directory structure standards across projects and teams.
+
+### Using Rule Packs
+
+```bash
+# Install official rule pack
+devibe rulepack install @devibe/nodejs-standard
+
+# Use in your project
+devibe --rulepack @devibe/nodejs-standard
+
+# Or in .devibe.config.js
+module.exports = {
+  rulepacks: ['@devibe/nodejs-standard']
+};
+```
+
+### Official Rule Packs
+
+- `@devibe/nodejs-standard` - Standard Node.js structure
+- `@devibe/react-standard` - React/Next.js conventions
+- `@devibe/nodejs-monorepo` - NX/Turborepo monorepo structure
+- `@devibe/python-standard` - Python best practices
+- `@devibe/go-standard` - Go standard project layout
+
+### Creating Custom Rule Packs
+
+Create your own shareable standards:
+
+```yaml
+# my-company-standard.yaml
+schema: "devibe-rulepack/v1"
+metadata:
+  name: "@mycompany/engineering-standard"
+  version: "1.0.0"
+
+structure:
+  requiredFolders:
+    - path: "src"
+    - path: "tests"
+    - path: "docs"
+
+testOrganization:
+  enabled: true
+  categories:
+    - name: "unit"
+      patterns: ["**/*.test.ts"]
+      targetDirectory: "tests/unit"
+```
+
+See [RULE_PACK_SPEC.md](./RULE_PACK_SPEC.md) for complete specification.
 
 ## Configuration
 

@@ -154,7 +154,28 @@ export interface ICanClassifyFiles {
 }
 
 export interface ICanSuggestFileLocations {
-  suggestLocation(file: FileClassification, repositories: GitRepository[]): string | null;
+  suggestLocation(
+    file: FileClassification,
+    repositories: GitRepository[],
+    content?: string
+  ): Promise<string | null>;
+}
+
+// Usage Detection Types
+export interface UsageReference {
+  file: string;
+  line: number;
+  context: string;
+}
+
+export interface UsageDetectionResult {
+  isReferenced: boolean;
+  references: UsageReference[];
+  recommendKeep: boolean;
+}
+
+export interface ICanDetectUsage {
+  checkFileUsage(filePath: string, searchPaths: string[]): Promise<UsageDetectionResult>;
 }
 
 // Script Classification Types
@@ -179,16 +200,22 @@ export interface FileOperation {
   sourcePath: string;
   targetPath?: string;
   reason: string;
+  warning?: string;  // Warning if file still referenced
+  isReferenced?: boolean;  // True if file is still being used
 }
 
 export interface OperationPlan {
   operations: FileOperation[];
   backupRequired: boolean;
   estimatedDuration: number;
+  warnings: string[];  // Warnings about referenced files
 }
 
 export interface ICanPlanOperations {
-  planRootFileDistribution(rootPath: string): Promise<OperationPlan>;
+  planRootFileDistribution(
+    rootPath: string, 
+    onProgress?: (current: number, total: number, file: string) => void
+  ): Promise<OperationPlan>;
   planFolderEnforcement(repoPath: string): Promise<OperationPlan>;
 }
 
@@ -202,4 +229,37 @@ export interface ExecutionResult {
   operationsFailed: number;
   errors: string[];
   backupManifestId?: string;
+}
+
+// Test Organization Types
+
+export type TestCategory = 'unit' | 'integration' | 'e2e' | 'tdd' | 'functional' | 'performance' | 'acceptance' | 'contract';
+
+export interface TestOrganizationRule {
+  category: TestCategory;
+  patterns: string[];
+  targetDirectory: string;
+  description: string;
+}
+
+export interface TechnologyTestConfig {
+  technology: string;
+  testPatterns: string[];
+  defaultTestDirectory: string;
+  categories: TestOrganizationRule[];
+}
+
+export interface TestOrganizationConfig {
+  enabled: boolean;
+  baseTestDirectory: string;
+  technologies: TechnologyTestConfig[];
+  globalRules: TestOrganizationRule[];
+  preserveStructure: boolean;
+  groupByTechnology: boolean;
+}
+
+export interface ICanOrganizeTests {
+  detectTestFiles(rootPath: string): Promise<string[]>;
+  categorizeTest(filePath: string): Promise<TestCategory>;
+  planTestOrganization(rootPath: string): Promise<OperationPlan>;
 }

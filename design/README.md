@@ -736,7 +736,7 @@ describe('SecretScanner', () => {
 
   describe('Generic API Keys', () => {
     test('should detect API key patterns', async () => {
-      const content = 'api_key = "sk_live_abc123def456ghi789"';
+      const content = 'api_key = "sk_test_4eC39HqLyjWDarjtT1zdp7dc"';  // Stripe's official test key
       const result = await scanner.scanFiles([{ path: 'api.py', content }]);
 
       expect(result.secretsFound).toBeGreaterThan(0);
@@ -788,13 +788,13 @@ describe('SecretScanner', () => {
 
   describe('Report Privacy', () => {
     test('should truncate secret values in reports', async () => {
-      const secret = 'sk_live_51HnqYKHr8zGvB7xKV5qH6kP8mN9jF4bC2aE1dA0';
+      const secret = 'sk_test_4eC39HqLyjWDarjtT1zdp7dc';  // Stripe's official test key
       const content = `const key = "${secret}";`;
       const result = await scanner.scanFiles([{ path: 'payment.js', content }]);
 
       const finding = result.findings[0];
       expect(finding.context).not.toContain(secret);
-      expect(finding.context).toMatch(/sk_live_\*\*\*\*\*/);
+      expect(finding.context).toMatch(/sk_test_\*\*\*\*\*/);
     });
   });
 

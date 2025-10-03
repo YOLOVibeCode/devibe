@@ -41,7 +41,7 @@ describe('SecretScanner', () => {
       const filePath = path.join(testDir, 'app.js');
       await fs.writeFile(
         filePath,
-        'const apiKey = "sk_live_51HnqYKHr8zGvB7xKV5qH6kP8";'
+        'const apiKey = "sk_test_4eC39HqLyjWDarjtT1zdp7dc";'  // Stripe's official test key from docs
       );
 
       // Act
@@ -71,7 +71,7 @@ describe('SecretScanner', () => {
 
     test('should truncate secret values in context', async () => {
       // Arrange
-      const secret = 'sk_live_51HnqYKHr8zGvB7xKV5qH6kP8mN9jF4bC2aE1dA0';
+      const secret = 'sk_test_4eC39HqLyjWDarjtT1zdp7dc';  // Stripe's official test key from docs
       const filePath = path.join(testDir, 'payment.js');
       await fs.writeFile(filePath, `const key = "${secret}";`);
 
@@ -182,7 +182,7 @@ describe('SecretScanner', () => {
 
     test('should classify typical secrets as high entropy', () => {
       // Arrange
-      const apiKey = 'sk_live_51HnqYKHr8zGvB7xKV5qH6kP8';
+      const apiKey = 'sk_test_4eC39HqLyjWDarjtT1zdp7dc';  // Stripe's official test key from docs
 
       // Act
       const hasHigh = scanner.hasHighEntropy(apiKey);

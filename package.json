@@ -1,7 +1,7 @@
 {
   "name": "devibe",
-  "version": "1.0.0",
-  "description": "UnVibe - Repository cleanup utility for vibe coding sessions",
+  "version": "1.2.0",
+  "description": "Repository cleanup utility for AI coding sessions - organize tests, detect secrets, enforce best practices",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -22,14 +23,42 @@
     "cleanup",
     "repository",
     "monorepo",
-    "vibe-coding",
-    "ai"
+    "test-organization",
+    "best-practices",
+    "secret-detection",
+    "rule-pack",
+    "devtools",
+    "ai",
+    "typescript",
+    "nodejs",
+    "react",
+    "python",
+    "go",
+    "java",
+    "dotnet"
   ],
   "author": "Ricardo Vega",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ricardovega/devibe.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ricardovega/devibe/issues"
+  },
+  "homepage": "https://github.com/ricardovega/devibe#readme",
   "engines": {
     "node": ">=18.0.0"
   },
+  "files": [
+    "dist",
+    "rulepacks",
+    "scripts",
+    "README.md",
+    "LICENSE",
+    "RULE_PACK_SPEC.md",
+    "QUICK_REFERENCE.md"
+  ],
   "devDependencies": {
     "@types/node": "^24.6.2",
     "@typescript-eslint/eslint-plugin": "^8.45.0",
