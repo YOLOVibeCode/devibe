@@ -181,14 +181,14 @@ program
   .action(async (options) => {
     const detector = new GitDetector();
     const classifier = new FileClassifier();
-    
+
     // Conditionally create usage detector
     let usageDetector = undefined;
     if (options.usageCheck !== false) {
       const { UsageDetector } = await import('./usage-detector.js');
       usageDetector = new UsageDetector();
     }
-    
+
     const planner = new OperationPlanner(detector, classifier, usageDetector);
 
     console.log('\n📋 Planning root file distribution...\n');
@@ -206,6 +206,10 @@ program
       console.log('⚠️  AI classification unavailable - using heuristics (65% accuracy)');
       console.log('   For better results: Set ANTHROPIC_API_KEY or OPENAI_API_KEY\n');
     } else {
+      // AI is available - check if we should prompt for cost optimization
+      const { checkAndPromptForCostOptimization } = await import('./ai-cost-advisor.js');
+      await checkAndPromptForCostOptimization();
+
       console.log('✓ AI classification enabled (this may take a few minutes for 158 files)\n');
     }
     
@@ -321,14 +325,18 @@ program
     const executor = new OperationExecutor(backupManager);
 
     console.log(`\n${options.dryRun ? '🔍 DRY RUN: ' : '⚡ '}Executing operations...\n`);
-    
+
     // Handle AI flag
     if (options.ai === false) {
       console.log('⚠️  AI classification disabled - using fast heuristics only\n');
       delete process.env.ANTHROPIC_API_KEY;
       delete process.env.OPENAI_API_KEY;
+    } else if (await AIClassifierFactory.isAvailable()) {
+      // AI is available - check if we should prompt for cost optimization
+      const { checkAndPromptForCostOptimization } = await import('./ai-cost-advisor.js');
+      await checkAndPromptForCostOptimization();
     }
-    
+
     if (options.usageCheck === false) {
       console.log('⚠️  Usage detection disabled\n');
     }
