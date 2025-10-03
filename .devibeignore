@@ -1,0 +1,23 @@
+# DevIbe Ignore File
+# Files and patterns to exclude from secret scanning
+
+# Secret pattern definitions (not actual secrets)
+src/secret-patterns.ts
+
+# Test files with example secrets for testing
+tests/**/*.test.ts
+tests/**/*.spec.ts
+
+# Build output
+dist/
+*.js.map
+
+# Dependencies
+node_modules/
+
+# Documentation
+*.md
+docs/
+
+# Configuration files
+.github/

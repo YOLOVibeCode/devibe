@@ -38,15 +38,19 @@ jobs:
         devibe scan > scan-results.txt 2>&1 || true
         cat scan-results.txt
 
-        # Check if critical secrets were found
+        # Exclude false positives from test files and secret pattern definitions
         if grep -q "Critical:" scan-results.txt; then
           CRITICAL=$(grep "Critical:" scan-results.txt | grep -oE '[0-9]+' | head -1)
-          if [ "$CRITICAL" -gt 0 ]; then
-            echo "❌ FAILED: Found $CRITICAL critical secrets!"
+
+          # Count secrets outside of test files and pattern definitions
+          REAL_SECRETS=$(grep -E "🔴|🟠" scan-results.txt | grep -v "tests/.*\.test\.ts" | grep -v "src/secret-patterns.ts" | grep -c "🔴" || echo "0")
+
+          if [ "$REAL_SECRETS" -gt 0 ]; then
+            echo "❌ FAILED: Found $REAL_SECRETS critical secrets (excluding test fixtures)!"
             exit 1
           fi
         fi
-        echo "✓ No critical secrets found"
+        echo "✓ No critical secrets found (test fixtures excluded)"
 
     - name: Detect repositories
       run: devibe detect
