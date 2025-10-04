@@ -6,6 +6,8 @@ Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently o
 
 ## Features
 
+✅ **Auto Mode (NEW)** - AI automatically cleans up your repo, no prompts needed
+✅ **Intelligent Learning** - Gets smarter from your corrections over time
 ✅ **Mono-repo friendly** - Respects multiple `.git` boundaries
 ✅ **Secret detection** - Scans for 31 types of hardcoded secrets
 ✅ **100% reversible** - All operations backed up automatically
@@ -42,6 +44,23 @@ devibe --help
 **NPM Package**: [https://www.npmjs.com/package/devibe](https://www.npmjs.com/package/devibe)
 
 ## Quick Start
+
+### Auto Mode (Hands-Free AI Cleanup) 🤖
+
+```bash
+# AI automatically analyzes and cleans up your repo
+devibe execute --auto
+
+# Preview what AI would do first
+devibe plan --auto
+
+# See detailed progress
+devibe execute --auto --verbose
+```
+
+**[Read the Auto Mode Guide →](./AUTO_MODE.md)**
+
+### Manual Mode (Step-by-Step)
 
 ```bash
 # Show repository status
@@ -88,12 +107,27 @@ Scan for hardcoded secrets (API keys, passwords, tokens).
 ### `devibe plan`
 Plan root file distribution (shows what would be done).
 
+```bash
+devibe plan              # Manual mode with heuristics
+devibe plan --auto       # Auto mode with AI (no prompts)
+devibe plan --verbose    # Show detailed progress
+```
+
 ### `devibe execute`
 Execute planned file operations with automatic backup.
 
 ```bash
-devibe execute --dry-run  # Preview without making changes
+devibe execute --dry-run     # Preview without making changes
+devibe execute --auto        # AI automatically executes everything
+devibe execute --auto -v     # Auto mode with detailed progress
 ```
+
+**Auto Mode Features:**
+- AI analyzes all files intelligently
+- No manual confirmation needed
+- Automatic backups before execution
+- Learns from your corrections
+- Perfect for CI/CD pipelines
 
 ### `devibe enforce`
 Enforce folder structure (`scripts/`, `documents/`).

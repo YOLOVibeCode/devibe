@@ -26,14 +26,18 @@ program
 AI ASSISTANT GUIDE:
 When the user mentions "run devibe" or asks about cleanup:
 1. Run: devibe scan            → Check for hardcoded secrets (31 types detected)
-2. Run: devibe plan            → Preview file organization changes
-3. Run: devibe execute         → Apply changes with automatic backup
+2. Run: devibe plan --auto     → AI analyzes and previews all operations
+3. Run: devibe execute --auto  → AI automatically cleans up the repository
 4. Run: devibe enforce         → Enforce scripts/ and documents/ folders
 5. Run: devibe validate        → Test that builds still work
 6. Run: devibe organize-tests  → Organize tests by category (unit, e2e, etc.)
 
 Quick cleanup: devibe yolo (auto-runs all steps above)
 Before git push: devibe check-pr (simulates GitHub CI checks)
+
+Auto Mode (NEW):
+- devibe plan --auto          → AI intelligently plans all file movements
+- devibe execute --auto       → AI automatically executes cleanup (no prompts!)
 
 Test commands:
 - devibe detect-tests         → List all test files and their categories
@@ -43,7 +47,7 @@ Test commands:
 Context: This tool cleans up messy repos after AI coding sessions by organizing
 root files, enforcing folder structure, and detecting secrets - all with 100%
 reversible backups. Perfect for monorepos with multiple .git boundaries.`)
-  .version('0.1.0');
+  .version('1.3.0');
 
 program
   .command('detect')
@@ -176,9 +180,85 @@ program
   .description('Plan root file distribution (dry-run)')
   .option('-p, --path <path>', 'Repository path', process.cwd())
   .option('-v, --verbose', 'Enable verbose debug output', false)
+  .option('--auto', 'Use AI to automatically classify all files without prompts', false)
   .option('--no-ai', 'Skip AI classification, use fast heuristics only', false)
   .option('--no-usage-check', 'Skip usage detection for faster processing', false)
   .action(async (options) => {
+    // Handle --auto mode
+    if (options.auto) {
+      const { AutoExecutor } = await import('./auto-executor.js');
+      const autoExecutor = new AutoExecutor();
+
+      console.log('\n🤖 Auto Mode: AI will analyze and plan all operations automatically\n');
+
+      try {
+        const preview = await autoExecutor.preview({
+          path: options.path,
+          verbose: options.verbose,
+          onProgress: (current, total, message) => {
+            if (options.verbose) {
+              console.log(`  [${current}/${total}] ${message}`);
+            } else {
+              const percentage = Math.round((current / total) * 100);
+              process.stdout.write(`\r  Progress: ${percentage}% - ${message.substring(0, 60).padEnd(60)}`);
+            }
+          },
+        });
+
+        if (!options.verbose) {
+          process.stdout.write('\r' + ' '.repeat(80) + '\r');
+        }
+
+        console.log(`\n✓ AI analysis complete!\n`);
+
+        if (preview.operations.length === 0) {
+          console.log('✓ No operations needed. Repository is clean!\n');
+          return;
+        }
+
+        if (preview.warnings.length > 0) {
+          console.log('⚠️  Warnings:\n');
+          for (const warning of preview.warnings) {
+            console.log(`  ${warning}`);
+          }
+          console.log('');
+        }
+
+        console.log(`Found ${preview.operations.length} operations:\n`);
+
+        const moveOps = preview.operations.filter(op => op.type === 'move');
+        const deleteOps = preview.operations.filter(op => op.type === 'delete');
+
+        if (moveOps.length > 0) {
+          console.log(`📦 MOVE Operations (${moveOps.length}):\n`);
+          for (const op of moveOps) {
+            console.log(`  ${path.basename(op.sourcePath)}`);
+            if (op.targetPath) {
+              console.log(`    → ${op.targetPath}`);
+            }
+            console.log(`    ${op.reason}\n`);
+          }
+        }
+
+        if (deleteOps.length > 0) {
+          console.log(`🗑️  DELETE Operations (${deleteOps.length}):\n`);
+          for (const op of deleteOps) {
+            console.log(`  ${path.basename(op.sourcePath)}`);
+            console.log(`    ${op.reason}\n`);
+          }
+        }
+
+        console.log(`Estimated duration: ${preview.estimatedDuration}ms\n`);
+        console.log('Run "devibe execute --auto" to apply these changes.\n');
+
+      } catch (error) {
+        console.error(`\n❌ Error: ${error instanceof Error ? error.message : String(error)}\n`);
+        process.exit(1);
+      }
+      return;
+    }
+
+    // Original plan logic
     const detector = new GitDetector();
     const classifier = new FileClassifier();
 
@@ -307,9 +387,73 @@ program
   .option('-p, --path <path>', 'Repository path', process.cwd())
   .option('--dry-run', 'Show what would be done without making changes', false)
   .option('-v, --verbose', 'Enable verbose debug output', false)
+  .option('--auto', 'Use AI to automatically execute all operations without prompts', false)
   .option('--no-ai', 'Skip AI classification, use fast heuristics only', false)
   .option('--no-usage-check', 'Skip usage detection for faster processing', false)
   .action(async (options) => {
+    // Handle --auto mode
+    if (options.auto) {
+      const { AutoExecutor } = await import('./auto-executor.js');
+      const autoExecutor = new AutoExecutor();
+
+      console.log('\n🤖 Auto Mode: AI will automatically execute all operations\n');
+
+      if (options.dryRun) {
+        console.log('⚠️  Running in DRY-RUN mode - no changes will be made\n');
+      }
+
+      try {
+        const result = await autoExecutor.execute({
+          path: options.path,
+          dryRun: options.dryRun,
+          verbose: options.verbose,
+          onProgress: (current, total, message) => {
+            if (options.verbose) {
+              console.log(`  [${current}/${total}] ${message}`);
+            } else {
+              const percentage = Math.round((current / total) * 100);
+              process.stdout.write(`\r  Progress: ${percentage}% - ${message.substring(0, 60).padEnd(60)}`);
+            }
+          },
+        });
+
+        if (!options.verbose) {
+          process.stdout.write('\r' + ' '.repeat(80) + '\r');
+        }
+
+        if (result.success) {
+          console.log(`\n✅ Auto cleanup complete!\n`);
+          console.log(`Files analyzed: ${result.filesAnalyzed}`);
+          console.log(`Operations completed: ${result.operationsCompleted}`);
+          console.log(`Duration: ${(result.duration / 1000).toFixed(2)}s\n`);
+
+          if (result.backupManifestId && !options.dryRun) {
+            console.log(`📦 Backup created: ${result.backupManifestId}`);
+            console.log(`   Restore with: devibe restore ${result.backupManifestId}\n`);
+          }
+        } else {
+          console.log(`\n⚠️  Auto cleanup completed with errors\n`);
+          console.log(`Operations completed: ${result.operationsCompleted}`);
+          console.log(`Operations failed: ${result.operationsFailed}\n`);
+
+          if (result.errors.length > 0) {
+            console.log('Errors:');
+            for (const error of result.errors) {
+              console.log(`  ❌ ${error}`);
+            }
+            console.log();
+          }
+          process.exit(1);
+        }
+
+      } catch (error) {
+        console.error(`\n❌ Error: ${error instanceof Error ? error.message : String(error)}\n`);
+        process.exit(1);
+      }
+      return;
+    }
+
+    // Original execute logic
     const detector = new GitDetector();
     const classifier = new FileClassifier();
     
