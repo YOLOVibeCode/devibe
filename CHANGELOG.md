@@ -2,6 +2,85 @@
 
 All notable changes to DevIbe will be documented in this file.
 
+## [1.5.1] - 2025-10-04
+
+### 🎉 Major Features
+
+#### Auto Mode - Hands-Free AI Cleanup
+- **Fully automated** - AI analyzes and executes all operations without prompts
+- **Zero user interaction** - Perfect for CI/CD pipelines
+- **Intelligent classification** - Uses learning, structure, and dependency analysis
+- **Automatic backups** - Full restore capability before execution
+- **Progress reporting** - Real-time feedback with percentage and detailed messages
+
+#### Automatic .gitignore Management
+- **Auto-exclude devibe directories** - `.devibe/` and `.unvibe/` added automatically
+- **All repositories** - Updates root and all sub-repositories in monorepos
+- **Smart updates** - Creates .gitignore if missing, skips if already configured
+- **Preserves content** - Adds entries without disrupting existing .gitignore
+
+### 📋 New Commands
+
+```bash
+# Auto Mode
+devibe plan --auto              # AI intelligently plans all operations
+devibe execute --auto           # AI automatically executes cleanup
+devibe execute --auto --dry-run # Preview auto mode changes
+devibe execute --auto -v        # Detailed progress output
+
+# GitIgnore Management
+devibe update-gitignore         # Update .gitignore in all repos
+devibe update-gitignore -p ./   # Specify path
+```
+
+### 🚀 Features
+
+**Auto Mode:**
+- Uses `IntelligentClassifier` with learning database
+- Automatic project structure analysis
+- Dependency-aware classification
+- 7-step workflow with progress tracking
+- Integrated .gitignore updates
+- CI/CD friendly
+
+**GitIgnore Manager:**
+- Updates .gitignore in all detected repositories
+- Creates new .gitignore with proper structure
+- Avoids duplicate entries
+- Detailed success/error reporting
+- Works with auto mode and manual mode
+
+### 📚 Documentation
+
+- `AUTO_MODE.md` - Complete auto mode guide (520+ lines)
+- Updated `README.md` - Auto mode quick start and examples
+- Command documentation for all new features
+
+### 🔧 Technical Implementation
+
+**New Files:**
+- `src/auto-executor.ts` - AutoExecutor class (220+ lines)
+- `src/gitignore-manager.ts` - GitIgnoreManager class (180+ lines)
+
+**Enhanced Files:**
+- `src/cli.ts` - Added --auto flag and update-gitignore command
+- `src/auto-executor.ts` - Integrated .gitignore step in workflow
+
+### 🐛 Bug Fixes
+
+- Added missing `glob` dependency to package.json
+- Fixed ERR_MODULE_NOT_FOUND error when running globally
+- Updated CLI version string to match package.json
+
+### 📊 Statistics
+
+- Total new code: 1,000+ lines
+- Total documentation: 600+ lines
+- Tests: 86/86 passing
+- Package size: 150.8 kB
+
+---
+
 ## [1.3.0] - 2025-10-03
 
 ### 🎉 Major Features
@@ -137,6 +216,7 @@ devibe ai-analyze-project   # Analyze project structure
 - Basic AI classification support
 - YOLO mode for aggressive cleanup
 
+[1.5.1]: https://github.com/YOLOVibeCode/devibe/compare/v1.3.0...v1.5.1
 [1.3.0]: https://github.com/YOLOVibeCode/devibe/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/YOLOVibeCode/devibe/compare/v1.0.0...v1.2.0
 [1.0.0]: https://github.com/YOLOVibeCode/devibe/releases/tag/v1.0.0

@@ -35,7 +35,7 @@ npx devibe
 
 ```bash
 devibe --version
-# Should show: 1.2.0
+# Should show: 1.5.1
 
 devibe --help
 # Shows all available commands
