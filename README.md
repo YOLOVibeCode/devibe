@@ -132,6 +132,22 @@ devibe execute --auto -v     # Auto mode with detailed progress
 ### `devibe enforce`
 Enforce folder structure (`scripts/`, `documents/`).
 
+### `devibe update-gitignore`
+Automatically update .gitignore files in all repositories to exclude `.devibe` and `.unvibe` directories.
+
+```bash
+devibe update-gitignore           # Update all repos
+devibe update-gitignore -p ./     # Specify path
+```
+
+**What it does:**
+- Adds `.devibe/` and `.unvibe/` to .gitignore in root and all sub-repositories
+- Creates .gitignore if it doesn't exist
+- Skips if entries already exist
+- Preserves existing .gitignore content
+
+**Note:** Auto mode (`devibe execute --auto`) automatically updates .gitignore files.
+
 ### `devibe validate`
 Detect and validate build systems (Node.js, Docker, Python, Go).
 

@@ -176,6 +176,66 @@ program
   });
 
 program
+  .command('update-gitignore')
+  .description('Update .gitignore files to exclude .devibe and .unvibe directories')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (options) => {
+    const { GitIgnoreManager } = await import('./gitignore-manager.js');
+    const detector = new GitDetector();
+
+    console.log('\n📝 Updating .gitignore files...\n');
+
+    const repoResult = await detector.detectRepositories(options.path);
+
+    if (repoResult.repositories.length === 0) {
+      console.log('❌ No git repositories found.\n');
+      return;
+    }
+
+    const manager = new GitIgnoreManager();
+    const result = await manager.updateAllRepositories(repoResult.repositories);
+
+    console.log('Results:\n');
+
+    if (result.created.length > 0) {
+      console.log(`✅ Created .gitignore in ${result.created.length} repositories:`);
+      for (const repoPath of result.created) {
+        console.log(`   ${repoPath}`);
+      }
+      console.log();
+    }
+
+    if (result.updated.length > 0) {
+      console.log(`✅ Updated .gitignore in ${result.updated.length} repositories:`);
+      for (const repoPath of result.updated) {
+        console.log(`   ${repoPath}`);
+      }
+      console.log();
+    }
+
+    if (result.skipped.length > 0) {
+      console.log(`⏭️  Skipped ${result.skipped.length} repositories (already configured):`);
+      for (const repoPath of result.skipped) {
+        console.log(`   ${repoPath}`);
+      }
+      console.log();
+    }
+
+    if (result.errors.length > 0) {
+      console.log(`❌ Failed to update ${result.errors.length} repositories:`);
+      for (const error of result.errors) {
+        console.log(`   ${error.path}: ${error.error}`);
+      }
+      console.log();
+    }
+
+    const totalProcessed = result.created.length + result.updated.length;
+    if (totalProcessed > 0) {
+      console.log(`✅ Successfully processed ${totalProcessed} repositories\n`);
+    }
+  });
+
+program
   .command('plan')
   .description('Plan root file distribution (dry-run)')
   .option('-p, --path <path>', 'Repository path', process.cwd())

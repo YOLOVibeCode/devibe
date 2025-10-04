@@ -18,6 +18,7 @@ import { OperationPlanner, OperationExecutor } from './operation-executor.js';
 import { GitDetector } from './git-detector.js';
 import { BackupManager } from './backup-manager.js';
 import { AIClassifierFactory } from './ai-classifier.js';
+import { GitIgnoreManager } from './gitignore-manager.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -43,6 +44,7 @@ export interface AutoExecutorResult {
 export class AutoExecutor {
   private detector = new GitDetector();
   private classifier = new IntelligentClassifier();
+  private gitignoreManager = new GitIgnoreManager();
 
   /**
    * Automatically clean up repository using AI
@@ -60,19 +62,31 @@ export class AutoExecutor {
       this.reportProgress(options, 0, 6, 'Initializing auto executor...');
 
       // Step 2: Detect repositories
-      this.reportProgress(options, 1, 6, 'Detecting repositories...');
+      this.reportProgress(options, 1, 7, 'Detecting repositories...');
       const repoResult = await this.detector.detectRepositories(options.path);
 
       if (repoResult.repositories.length === 0) {
         throw new Error('No git repositories found. Run "git init" first.');
       }
 
+      // Step 2.5: Update .gitignore files
+      if (!options.dryRun) {
+        this.reportProgress(options, 2, 7, 'Updating .gitignore files...');
+        const gitignoreResult = await this.gitignoreManager.updateAllRepositories(
+          repoResult.repositories
+        );
+
+        if (options.verbose) {
+          console.log(`\n${GitIgnoreManager.formatResult(gitignoreResult)}`);
+        }
+      }
+
       // Step 3: Analyze project structure (for intelligent classification)
-      this.reportProgress(options, 2, 6, 'Analyzing project structure...');
+      this.reportProgress(options, 3, 7, 'Analyzing project structure...');
       await this.classifier.classifyBatch([], repoResult.repositories);
 
       // Step 4: Create execution plan using intelligent classification
-      this.reportProgress(options, 3, 6, 'Creating execution plan with AI...');
+      this.reportProgress(options, 4, 7, 'Creating execution plan with AI...');
 
       const planner = new OperationPlanner(
         this.detector,
@@ -85,8 +99,8 @@ export class AutoExecutor {
         (current, total, file) => {
           this.reportProgress(
             options,
-            3,
-            6,
+            4,
+            7,
             `Analyzing files: ${current}/${total} - ${path.basename(file)}`
           );
         }
@@ -107,8 +121,8 @@ export class AutoExecutor {
       // Step 5: Execute operations with backup
       this.reportProgress(
         options,
-        4,
-        6,
+        5,
+        7,
         `Executing ${plan.operations.length} operations...`
       );
 
@@ -123,7 +137,7 @@ export class AutoExecutor {
       );
 
       // Step 6: Complete
-      this.reportProgress(options, 6, 6, 'Auto cleanup complete!');
+      this.reportProgress(options, 7, 7, 'Auto cleanup complete!');
 
       return {
         success: executionResult.success,
