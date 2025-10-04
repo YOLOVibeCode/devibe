@@ -79,6 +79,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "commander": "^14.0.1"
+    "commander": "^14.0.1",
+    "glob": "^11.0.0"
   }
 }
