@@ -1357,6 +1357,137 @@ program
     }
   });
 
+program
+  .command('ai-learn')
+  .description('View AI learning statistics and patterns')
+  .action(async () => {
+    const { getLearningDatabase } = await import('./ai-learning-database.js');
+    const learningDb = getLearningDatabase();
+
+    console.log('\n📚 AI Learning Statistics\n');
+
+    const stats = await learningDb.getStats();
+
+    console.log(`Total Corrections: ${stats.totalCorrections}`);
+    console.log(`Learned Patterns: ${stats.totalPatterns}`);
+    console.log(`Project Structure Analyzed: ${stats.hasProjectStructure ? 'Yes' : 'No'}`);
+
+    if (stats.mostCommonCategory) {
+      console.log(`Most Corrected Category: ${stats.mostCommonCategory}`);
+    }
+
+    if (stats.totalPatterns > 0) {
+      console.log(`Average Pattern Confidence: ${(stats.avgConfidence * 100).toFixed(1)}%`);
+    }
+
+    // Show project structure if available
+    const structure = await learningDb.getProjectStructure();
+    if (structure) {
+      console.log('\n📁 Project Structure:\n');
+      console.log(`  Type: ${structure.type}`);
+      if (structure.framework) {
+        console.log(`  Framework: ${structure.framework}`);
+      }
+      if (structure.testStrategy) {
+        console.log(`  Test Strategy: ${structure.testStrategy}`);
+      }
+
+      if (structure.repositories.length > 0) {
+        console.log(`\n  Repositories (${structure.repositories.length}):`);
+        for (const repo of structure.repositories) {
+          const tech = repo.technology ? ` - ${repo.technology}` : '';
+          console.log(`    • ${repo.name}${tech}`);
+        }
+      }
+    }
+
+    console.log();
+  });
+
+program
+  .command('ai-correct <file> <target>')
+  .description('Teach AI the correct location for a file')
+  .option('-c, --category <category>', 'File category (documentation, script, test, source, config, asset)')
+  .option('-r, --repository <repository>', 'Repository name (for monorepos)')
+  .action(async (filePath: string, targetPath: string, options) => {
+    const { IntelligentClassifier } = await import('./intelligent-classifier.js');
+    const classifier = new IntelligentClassifier();
+
+    console.log(`\n📖 Teaching AI...\n`);
+    console.log(`File: ${filePath}`);
+    console.log(`Target: ${targetPath}`);
+
+    // Get AI's current suggestion
+    console.log('\nGetting AI suggestion...');
+    const aiSuggestion = await classifier.classify(filePath);
+
+    console.log(`AI suggested: ${aiSuggestion.category} (${(aiSuggestion.confidence * 100).toFixed(0)}% confidence)`);
+    console.log(`AI reasoning: ${aiSuggestion.reasoning}`);
+
+    // Record the correction
+    await classifier.recordCorrection(
+      filePath,
+      {
+        category: aiSuggestion.category,
+        repository: options.repository,
+        targetPath: filePath, // Current location
+      },
+      {
+        category: options.category || aiSuggestion.category,
+        repository: options.repository,
+        targetPath,
+      }
+    );
+
+    console.log('\n✅ Correction recorded!');
+    console.log('   AI will learn from this and improve future classifications.\n');
+  });
+
+program
+  .command('ai-analyze-project')
+  .description('Analyze project structure for smarter AI classification')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (options) => {
+    const { GitDetector } = await import('./git-detector.js');
+    const { ProjectStructureAnalyzer } = await import('./project-structure-analyzer.js');
+    const { getLearningDatabase } = await import('./ai-learning-database.js');
+
+    console.log('\n🔍 Analyzing project structure...\n');
+
+    const detector = new GitDetector();
+    const analyzer = new ProjectStructureAnalyzer();
+    const learningDb = getLearningDatabase();
+
+    const result = await detector.detectRepositories(options.path);
+
+    console.log('Detecting repositories...');
+    const structure = await analyzer.analyze(options.path, result.repositories);
+
+    console.log('\n📊 Project Structure Analysis:\n');
+    console.log(`Type: ${structure.type}`);
+
+    if (structure.framework) {
+      console.log(`Framework: ${structure.framework}`);
+    }
+
+    if (structure.testStrategy) {
+      console.log(`Test Strategy: ${structure.testStrategy}`);
+    }
+
+    console.log(`\nRepositories: ${structure.repositories.length}`);
+    for (const repo of structure.repositories) {
+      const tech = repo.technology ? ` (${repo.technology})` : '';
+      const root = repo.isRoot ? ' [ROOT]' : '';
+      console.log(`  • ${repo.name}${tech}${root}`);
+    }
+
+    // Store the analysis
+    await learningDb.storeProjectStructure(structure);
+
+    console.log('\n✅ Project structure analyzed and saved!');
+    console.log('   AI will use this context for smarter classifications.\n');
+  });
+
 // Show status by default if no command specified
 if (process.argv.length === 2) {
   process.argv.push('status');
