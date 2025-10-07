@@ -6,8 +6,6 @@ Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently o
 
 ## Features
 
-✅ **Auto Mode (NEW)** - AI automatically cleans up your repo, no prompts needed
-✅ **Intelligent Learning** - Gets smarter from your corrections over time
 ✅ **Mono-repo friendly** - Respects multiple `.git` boundaries
 ✅ **Secret detection** - Scans for 31 types of hardcoded secrets
 ✅ **100% reversible** - All operations backed up automatically
@@ -35,7 +33,7 @@ npx devibe
 
 ```bash
 devibe --version
-# Should show: 1.5.1
+# Should show: 1.2.0
 
 devibe --help
 # Shows all available commands
@@ -44,23 +42,6 @@ devibe --help
 **NPM Package**: [https://www.npmjs.com/package/devibe](https://www.npmjs.com/package/devibe)
 
 ## Quick Start
-
-### Auto Mode (Hands-Free AI Cleanup) 🤖
-
-```bash
-# AI automatically analyzes and cleans up your repo
-devibe execute --auto
-
-# Preview what AI would do first
-devibe plan --auto
-
-# See detailed progress
-devibe execute --auto --verbose
-```
-
-**[Read the Auto Mode Guide →](./AUTO_MODE.md)**
-
-### Manual Mode (Step-by-Step)
 
 ```bash
 # Show repository status
@@ -107,46 +88,15 @@ Scan for hardcoded secrets (API keys, passwords, tokens).
 ### `devibe plan`
 Plan root file distribution (shows what would be done).
 
-```bash
-devibe plan              # Manual mode with heuristics
-devibe plan --auto       # Auto mode with AI (no prompts)
-devibe plan --verbose    # Show detailed progress
-```
-
 ### `devibe execute`
 Execute planned file operations with automatic backup.
 
 ```bash
-devibe execute --dry-run     # Preview without making changes
-devibe execute --auto        # AI automatically executes everything
-devibe execute --auto -v     # Auto mode with detailed progress
+devibe execute --dry-run  # Preview without making changes
 ```
-
-**Auto Mode Features:**
-- AI analyzes all files intelligently
-- No manual confirmation needed
-- Automatic backups before execution
-- Learns from your corrections
-- Perfect for CI/CD pipelines
 
 ### `devibe enforce`
 Enforce folder structure (`scripts/`, `documents/`).
-
-### `devibe update-gitignore`
-Automatically update .gitignore files in all repositories to exclude `.devibe` and `.unvibe` directories.
-
-```bash
-devibe update-gitignore           # Update all repos
-devibe update-gitignore -p ./     # Specify path
-```
-
-**What it does:**
-- Adds `.devibe/` and `.unvibe/` to .gitignore in root and all sub-repositories
-- Creates .gitignore if it doesn't exist
-- Skips if entries already exist
-- Preserves existing .gitignore content
-
-**Note:** Auto mode (`devibe execute --auto`) automatically updates .gitignore files.
 
 ### `devibe validate`
 Detect and validate build systems (Node.js, Docker, Python, Go).
@@ -169,6 +119,25 @@ YOLO mode: Run full cleanup workflow automatically.
 
 ⚠️ **Use with caution!** This mode makes automatic changes.
 
+### Auto Mode Commands
+
+**Fully automatic organization with zero prompts:**
+
+```bash
+# With AI (90% accuracy) - Recommended
+devibe plan --auto              # Preview AI organization
+devibe execute --auto           # Execute AI organization
+
+# Without AI (65% accuracy) - Faster, no API keys needed
+devibe plan --auto --no-ai      # Preview heuristic organization  
+devibe execute --auto --no-ai   # Execute heuristic organization
+```
+
+**When to use:**
+- 🤖 `--auto`: Trust AI to organize everything automatically
+- ⚡ `--auto --no-ai`: Fast cleanup without AI (uses heuristics)
+- See [AI Auto Mode Guide](./AI_AUTO_MODE_GUIDE.md) for details
+
 ### `devibe init`
 Initialize UnVibe configuration file.
 
@@ -179,7 +148,7 @@ Organize test files by category (unit, integration, e2e, etc.).
 devibe organize-tests              # Move tests to organized directories
 devibe organize-tests --dry-run    # Preview changes
 devibe organize-tests --report     # Generate organization report
-```
+```0
 
 ### `devibe detect-tests`
 List all test files and their categories.

@@ -240,8 +240,8 @@ program
   .description('Plan root file distribution (dry-run)')
   .option('-p, --path <path>', 'Repository path', process.cwd())
   .option('-v, --verbose', 'Enable verbose debug output', false)
-  .option('--auto', 'Use AI to automatically classify all files without prompts', false)
-  .option('--no-ai', 'Skip AI classification, use fast heuristics only', false)
+  .option('--auto', 'Automatically organize without prompts', false)
+  .option('--no-ai', 'Use heuristics only (no AI)', false)
   .option('--no-usage-check', 'Skip usage detection for faster processing', false)
   .action(async (options) => {
     // Handle --auto mode
@@ -249,7 +249,19 @@ program
       const { AutoExecutor } = await import('./auto-executor.js');
       const autoExecutor = new AutoExecutor();
 
-      console.log('\n🤖 Auto Mode: AI will analyze and plan all operations automatically\n');
+      // Handle --no-ai flag with auto mode
+      if (options.ai === false) {
+        console.log('\n🤖 Auto Mode: Organizing automatically using heuristics (no AI)\n');
+        // Temporarily disable AI for this run
+        const oldAnthropicKey = process.env.ANTHROPIC_API_KEY;
+        const oldOpenAIKey = process.env.OPENAI_API_KEY;
+        const oldGoogleKey = process.env.GOOGLE_API_KEY;
+        delete process.env.ANTHROPIC_API_KEY;
+        delete process.env.OPENAI_API_KEY;
+        delete process.env.GOOGLE_API_KEY;
+      } else {
+        console.log('\n🤖 Auto Mode: AI will analyze and plan all operations automatically\n');
+      }
 
       try {
         const preview = await autoExecutor.preview({
@@ -333,28 +345,26 @@ program
 
     console.log('\n📋 Planning root file distribution...\n');
 
-    // Check AI availability and inform user
-    if (options.ai === false) {
-      console.log('⚠️  AI classification disabled - using fast heuristics only');
-      console.log('   This will be much faster but less accurate\n');
-      // Temporarily disable AI
-      const oldAnthropicKey = process.env.ANTHROPIC_API_KEY;
-      const oldOpenAIKey = process.env.OPENAI_API_KEY;
-      delete process.env.ANTHROPIC_API_KEY;
-      delete process.env.OPENAI_API_KEY;
-    } else if (!AIClassifierFactory.isAvailable()) {
-      console.log('⚠️  AI classification unavailable - using heuristics (65% accuracy)');
-      console.log('   For better results: Set ANTHROPIC_API_KEY or OPENAI_API_KEY\n');
+    // Show AI startup banner if AI is available
+    const aiAvailable = await AIClassifierFactory.isAvailable();
+    if (aiAvailable) {
+      const { showAIStartupBanner } = await import('./ai-cost-advisor.js');
+      
+      // Estimate file count (quick scan of root directory)
+      try {
+        const entries = await fs.readdir(options.path, { withFileTypes: true });
+        const estimatedFiles = entries.filter(e => 
+          e.isFile() && 
+          !e.name.startsWith('.') && 
+          !['package.json', 'package-lock.json', 'tsconfig.json', 'README.md', 'LICENSE'].includes(e.name)
+        ).length;
+        await showAIStartupBanner(estimatedFiles || 10);
+      } catch {
+        await showAIStartupBanner(10); // Default estimate if scan fails
+      }
     } else {
-      // AI is available - check if we should prompt for cost optimization
-      const { checkAndPromptForCostOptimization } = await import('./ai-cost-advisor.js');
-      await checkAndPromptForCostOptimization();
-
-      console.log('✓ AI classification enabled (this may take a few minutes for 158 files)\n');
-    }
-    
-    if (options.usageCheck === false) {
-      console.log('⚠️  Usage detection disabled - will not check if files are referenced\n');
+      console.log('⚠️  AI unavailable - using heuristics only');
+      console.log('   To enable AI: devibe ai-key add <provider> <api-key>\n');
     }
 
     // Progress callback
@@ -447,8 +457,8 @@ program
   .option('-p, --path <path>', 'Repository path', process.cwd())
   .option('--dry-run', 'Show what would be done without making changes', false)
   .option('-v, --verbose', 'Enable verbose debug output', false)
-  .option('--auto', 'Use AI to automatically execute all operations without prompts', false)
-  .option('--no-ai', 'Skip AI classification, use fast heuristics only', false)
+  .option('--auto', 'Automatically execute without prompts', false)
+  .option('--no-ai', 'Use heuristics only (no AI)', false)
   .option('--no-usage-check', 'Skip usage detection for faster processing', false)
   .action(async (options) => {
     // Handle --auto mode
@@ -456,7 +466,19 @@ program
       const { AutoExecutor } = await import('./auto-executor.js');
       const autoExecutor = new AutoExecutor();
 
-      console.log('\n🤖 Auto Mode: AI will automatically execute all operations\n');
+      // Handle --no-ai flag with auto mode
+      if (options.ai === false) {
+        console.log('\n🤖 Auto Mode: Automatically executing using heuristics (no AI)\n');
+        // Temporarily disable AI for this run
+        const oldAnthropicKey = process.env.ANTHROPIC_API_KEY;
+        const oldOpenAIKey = process.env.OPENAI_API_KEY;
+        const oldGoogleKey = process.env.GOOGLE_API_KEY;
+        delete process.env.ANTHROPIC_API_KEY;
+        delete process.env.OPENAI_API_KEY;
+        delete process.env.GOOGLE_API_KEY;
+      } else {
+        console.log('\n🤖 Auto Mode: AI will automatically execute all operations\n');
+      }
 
       if (options.dryRun) {
         console.log('⚠️  Running in DRY-RUN mode - no changes will be made\n');
@@ -530,15 +552,26 @@ program
 
     console.log(`\n${options.dryRun ? '🔍 DRY RUN: ' : '⚡ '}Executing operations...\n`);
 
-    // Handle AI flag
-    if (options.ai === false) {
-      console.log('⚠️  AI classification disabled - using fast heuristics only\n');
-      delete process.env.ANTHROPIC_API_KEY;
-      delete process.env.OPENAI_API_KEY;
-    } else if (await AIClassifierFactory.isAvailable()) {
-      // AI is available - check if we should prompt for cost optimization
-      const { checkAndPromptForCostOptimization } = await import('./ai-cost-advisor.js');
-      await checkAndPromptForCostOptimization();
+    // Show AI startup banner if AI is available
+    const aiAvailable = await AIClassifierFactory.isAvailable();
+    if (aiAvailable) {
+      const { showAIStartupBanner } = await import('./ai-cost-advisor.js');
+      
+      // Estimate file count (quick scan of root directory)
+      try {
+        const entries = await fs.readdir(options.path, { withFileTypes: true });
+        const estimatedFiles = entries.filter(e => 
+          e.isFile() && 
+          !e.name.startsWith('.') && 
+          !['package.json', 'package-lock.json', 'tsconfig.json', 'README.md', 'LICENSE'].includes(e.name)
+        ).length;
+        await showAIStartupBanner(estimatedFiles || 10);
+      } catch {
+        await showAIStartupBanner(10); // Default estimate if scan fails
+      }
+    } else {
+      console.log('⚠️  AI unavailable - using heuristics only');
+      console.log('   To enable AI: devibe ai-key add <provider> <api-key>\n');
     }
 
     if (options.usageCheck === false) {

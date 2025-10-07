@@ -34,7 +34,8 @@ export interface UnVibeConfig {
   // AI settings
   ai?: {
     enabled?: boolean;
-    provider?: 'anthropic' | 'openai';
+    autoOrganize?: boolean; // Automatically organize without prompts (trust AI)
+    provider?: 'anthropic' | 'openai' | 'google';
     model?: string;
   };
 
@@ -236,6 +237,7 @@ export class ConfigManager {
     },
     ai: {
       enabled: false,
+      autoOrganize: false,
       provider: 'anthropic',
     },
     backup: {
@@ -343,8 +345,9 @@ export class ConfigManager {
   // AI settings
   ai: {
     enabled: false,  // Set to true when you have API keys
-    provider: 'anthropic', // or 'openai'
-    model: 'claude-3-5-sonnet-20241022' // or 'gpt-4'
+    autoOrganize: false, // Auto-trust AI to organize without prompts
+    provider: 'anthropic', // or 'openai' or 'google'
+    model: 'claude-3-5-sonnet-20241022' // or 'gpt-4' or 'gemini-1.5-flash'
   },
 
   // Backup settings

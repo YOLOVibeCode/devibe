@@ -176,6 +176,42 @@ export class AICostAdvisor {
 }
 
 /**
+ * Show AI startup banner with model info, cost estimate, and removal instructions
+ */
+export async function showAIStartupBanner(estimatedFiles: number = 100): Promise<void> {
+  const resolver = getAIResolver();
+  const resolved = await resolver.resolve();
+
+  if (!resolved) {
+    return; // No AI configured, nothing to show
+  }
+
+  const model = resolved.model;
+  const keyManager = await import('./ai-key-manager.js').then(m => m.getKeyManager());
+  
+  console.log('\n🤖 AI Classification Active');
+  console.log('━'.repeat(70));
+  console.log(`   Model:    ${model.name}`);
+  console.log(`   Provider: ${resolved.provider}`);
+  console.log(`   Context:  ${model.contextWindow.toLocaleString()} tokens`);
+  
+  // Estimate cost for this operation
+  const comparison = compareModels(estimatedFiles);
+  const cost = comparison.find(c => c.model === model.name);
+  
+  if (cost) {
+    console.log(`   Cost:     $${cost.totalCost.toFixed(4)} for ~${estimatedFiles} files ($${cost.costPerFile.toFixed(6)}/file)`);
+    console.log(`   Batches:  ${cost.batchCount} batch${cost.batchCount > 1 ? 'es' : ''} (${cost.apiCalls} API call${cost.apiCalls > 1 ? 's' : ''})`);
+  }
+  
+  // Show removal instructions
+  console.log(`\n   💡 To remove this key: devibe ai-key remove ${resolved.provider}`);
+  console.log(`   📊 Compare costs:       devibe ai`);
+  console.log('━'.repeat(70));
+  console.log('');
+}
+
+/**
  * Check if we should prompt for AI analysis before using AI
  * Call this before AI operations that might be expensive
  */
