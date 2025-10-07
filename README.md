@@ -381,7 +381,32 @@ devibe check-pr
 - ✅ Automated PR comments with results
 - ✅ Prevents broken builds on main
 
-See [GITHUB-INTEGRATION.md](GITHUB-INTEGRATION.md) for full guide.
+See [GITHUB-INTEGRATION.md](./documents/GITHUB-INTEGRATION.md) for full guide.
+
+## Documentation
+
+All comprehensive documentation has been organized into the [`documents/`](./documents/) directory:
+
+📚 **[View Full Documentation Index →](./documents/README.md)**
+
+### Quick Links
+
+- **AI & Setup:**
+  - [AI Setup Guide](./documents/AI_SETUP_GUIDE.md) - Get started with AI features
+  - [AI Auto Mode Guide](./documents/AI_AUTO_MODE_GUIDE.md) - Automatic organization  
+  - [Auto Mode Quick Reference](./documents/AUTO_MODE_QUICK_REF.md) - Quick commands
+
+- **Architecture:**
+  - [Architecture Overview](./documents/ARCHITECTURE.md) - System design
+  - [Specifications](./documents/SPECIFICATIONS.md) - Technical specs
+  - [Requirements](./documents/REQUIREMENTS.md) - Feature requirements
+
+- **Reference:**
+  - [Quick Reference](./documents/QUICK_REFERENCE.md) - Command cheat sheet
+  - [Changelog](./documents/CHANGELOG.md) - Version history
+  - [Rule Pack Spec](./documents/RULE_PACK_SPEC.md) - Custom rule packs
+
+**💡 Tip:** The `documents/` folder contains 20+ guides. Check [`documents/README.md`](./documents/README.md) for the complete organized index.
 
 ## Development
 

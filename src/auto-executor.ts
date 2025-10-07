@@ -136,7 +136,12 @@ export class AutoExecutor {
         options.dryRun || false
       );
 
-      // Step 6: Complete
+      // Step 6.5: Create documentation index if documents were moved
+      if (!options.dryRun && executionResult.success) {
+        await this.createDocumentationIndex(options.path, plan.operations);
+      }
+
+      // Step 7: Complete
       this.reportProgress(options, 7, 7, 'Auto cleanup complete!');
 
       return {
@@ -232,5 +237,110 @@ export class AutoExecutor {
     if (options.onProgress) {
       options.onProgress(current, total, message);
     }
+  }
+
+  /**
+   * Create documentation index in documents folder
+   */
+  private async createDocumentationIndex(
+    repoPath: string,
+    operations: FileOperation[]
+  ): Promise<void> {
+    // Find all operations that moved files to documents/
+    const docOperations = operations.filter(
+      op => op.type === 'move' && op.targetPath?.includes('/documents/')
+    );
+
+    if (docOperations.length === 0) {
+      return; // No docs moved, skip
+    }
+
+    const documentsDir = path.join(repoPath, 'documents');
+    
+    // Check if documents directory exists
+    try {
+      await fs.access(documentsDir);
+    } catch {
+      return; // Documents dir doesn't exist
+    }
+
+    // Get list of all files in documents directory
+    const files = await fs.readdir(documentsDir);
+    const mdFiles = files
+      .filter(f => f.endsWith('.md'))
+      .sort();
+
+    // Group files by category
+    const categories: Record<string, string[]> = {
+      'AI & Intelligence': [],
+      'Setup & Configuration': [],
+      'Architecture & Design': [],
+      'Features & Demos': [],
+      'Reference & Specs': [],
+      'Other Documentation': []
+    };
+
+    for (const file of mdFiles) {
+      const lower = file.toLowerCase();
+      
+      if (lower.startsWith('ai_') || lower.includes('intelligent') || lower.includes('batching')) {
+        categories['AI & Intelligence'].push(file);
+      } else if (lower.includes('setup') || lower.includes('config') || lower.includes('install')) {
+        categories['Setup & Configuration'].push(file);
+      } else if (lower.includes('architecture') || lower.includes('design') || lower.includes('spec')) {
+        categories['Architecture & Design'].push(file);
+      } else if (lower.includes('demo') || lower.includes('feature') || lower.includes('mode')) {
+        categories['Features & Demos'].push(file);
+      } else if (lower.includes('reference') || lower.includes('requirement') || lower.includes('changelog')) {
+        categories['Reference & Specs'].push(file);
+      } else {
+        categories['Other Documentation'].push(file);
+      }
+    }
+
+    // Create index content
+    let indexContent = `# Documentation Index
+
+Welcome to the D-Vibe documentation! All project documentation has been organized here for easy navigation.
+
+**📍 You are here:** \`documents/\`  
+**🏠 Main README:** [\`../README.md\`](../README.md)
+
+---
+
+## 📚 Documentation Categories
+
+`;
+
+    // Add each category
+    for (const [category, files] of Object.entries(categories)) {
+      if (files.length > 0) {
+        indexContent += `### ${category}\n\n`;
+        for (const file of files) {
+          const name = file.replace(/\.md$/, '').replace(/_/g, ' ');
+          indexContent += `- [${name}](./${file})\n`;
+        }
+        indexContent += '\n';
+      }
+    }
+
+    // Add footer with stats
+    indexContent += `---
+
+## 📊 Quick Stats
+
+- **Total Documents:** ${mdFiles.length}
+- **Organized by:** D-Vibe Auto Mode
+- **Last Updated:** ${new Date().toISOString().split('T')[0]}
+
+---
+
+**Tip:** Use your IDE's file search or \`grep\` to find specific topics across all documentation.
+
+`;
+
+    // Write index file
+    const indexPath = path.join(documentsDir, 'README.md');
+    await fs.writeFile(indexPath, indexContent, 'utf-8');
   }
 }
