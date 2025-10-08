@@ -2,6 +2,84 @@
 
 All notable changes to DevIbe will be documented in this file.
 
+## [1.5.2] - 2025-10-07
+
+### 🎨 Enhanced User Experience
+
+#### AI Startup Banner
+- **Visual branding** - ASCII art banner on startup showcasing AI capabilities
+- **Quick guide** - Essential commands displayed upfront for AI assistants
+- **Auto mode highlights** - Clear instructions for one-command cleanup
+- **Context-aware help** - Guides users to the right commands
+
+#### Enhanced Auto Mode
+- **One-command execution** - `devibe --auto` for quick auto-organize
+- **Default behavior** - Running `devibe` without subcommands shows status
+- **No-AI option** - `devibe --auto --no-ai` for heuristics-only mode
+- **Simplified workflow** - Consolidated status command into default action
+
+### 📋 Command Updates
+
+```bash
+# New Quick Commands
+devibe --auto              # Quick auto-organize (AI or heuristics)
+devibe --auto --no-ai      # Quick auto-organize (heuristics only)
+devibe                     # Show repository status (replaces 'devibe status')
+
+# Updated Documentation
+- Auto-generated documentation index with --auto mode
+- Updated README with clearer auto mode instructions
+```
+
+### 🚀 Features
+
+**Default Command:**
+- Status display when no subcommand provided
+- Git repository detection and count
+- AI availability check with provider info
+- Build configuration validation
+- Suggested commands based on project state
+
+**Auto Mode Improvements:**
+- Integrated into main command with --auto flag
+- --no-ai flag temporarily disables AI for single run
+- Verbose progress tracking with -v flag
+- Path specification with -p flag
+- Cleaner progress output and status reporting
+
+**Documentation Generation:**
+- Auto-generated documentation index in documents/README.md
+- Quick stats showing total document count
+- Organized by D-Vibe Auto Mode
+- Last updated timestamp
+
+### 📚 Documentation
+
+- Updated CLI help text with AI assistant guide
+- Removed legacy `status` subcommand (now default)
+- Enhanced AI assistant instructions in banner
+- Clearer auto mode examples and usage patterns
+
+### 🔧 Technical Changes
+
+**Modified Files:**
+- `src/cli.ts` - Added default action with --auto support, removed status command
+- `documents/README.md` - Auto-generated documentation index
+
+### 🐛 Bug Fixes
+
+- Consolidated duplicate status functionality
+- Fixed command organization for better UX
+- Improved AI key availability handling in --no-ai mode
+
+### 📊 Statistics
+
+- Total modified code: 200+ lines
+- Updated documentation: 50+ lines
+- Tests: All passing
+
+---
+
 ## [1.5.1] - 2025-10-04
 
 ### 🎉 Major Features
@@ -216,6 +294,7 @@ devibe ai-analyze-project   # Analyze project structure
 - Basic AI classification support
 - YOLO mode for aggressive cleanup
 
+[1.5.2]: https://github.com/YOLOVibeCode/devibe/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/YOLOVibeCode/devibe/compare/v1.3.0...v1.5.1
 [1.3.0]: https://github.com/YOLOVibeCode/devibe/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/YOLOVibeCode/devibe/compare/v1.0.0...v1.2.0

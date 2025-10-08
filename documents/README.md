@@ -47,12 +47,13 @@ Welcome to the D-Vibe documentation! All project documentation has been organize
 - [CONTEXT WINDOW OPTIMIZATION](./CONTEXT_WINDOW_OPTIMIZATION.md)
 - [GITHUB-INTEGRATION](./GITHUB-INTEGRATION.md)
 - [IMPLEMENTATION SUMMARY](./IMPLEMENTATION_SUMMARY.md)
+- [README](./README.md)
 
 ---
 
 ## 📊 Quick Stats
 
-- **Total Documents:** 24
+- **Total Documents:** 25
 - **Organized by:** D-Vibe Auto Mode
 - **Last Updated:** 2025-10-07
 

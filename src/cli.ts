@@ -26,18 +26,19 @@ program
 AI ASSISTANT GUIDE:
 When the user mentions "run devibe" or asks about cleanup:
 1. Run: devibe scan            → Check for hardcoded secrets (31 types detected)
-2. Run: devibe plan --auto     → AI analyzes and previews all operations
+2. Run: devibe --auto          → Quick auto-organize with AI (one command!)
 3. Run: devibe execute --auto  → AI automatically cleans up the repository
 4. Run: devibe enforce         → Enforce scripts/ and documents/ folders
 5. Run: devibe validate        → Test that builds still work
 6. Run: devibe organize-tests  → Organize tests by category (unit, e2e, etc.)
 
-Quick cleanup: devibe yolo (auto-runs all steps above)
+Quick cleanup: devibe --auto (one command does everything!)
 Before git push: devibe check-pr (simulates GitHub CI checks)
 
 Auto Mode (NEW):
-- devibe plan --auto          → AI intelligently plans all file movements
-- devibe execute --auto       → AI automatically executes cleanup (no prompts!)
+- devibe --auto              → Quick auto-organize (AI or heuristics)
+- devibe --auto --no-ai      → Quick auto-organize (heuristics only, no API key)
+- devibe execute --auto      → AI automatically executes cleanup (no prompts!)
 
 Test commands:
 - devibe detect-tests         → List all test files and their categories
@@ -47,7 +48,123 @@ Test commands:
 Context: This tool cleans up messy repos after AI coding sessions by organizing
 root files, enforcing folder structure, and detecting secrets - all with 100%
 reversible backups. Perfect for monorepos with multiple .git boundaries.`)
-  .version('1.5.0');
+  .version('1.5.2')
+  .option('--auto', 'Quick auto-organize repository', false)
+  .option('--no-ai', 'Use heuristics only (no AI)', false)
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('-v, --verbose', 'Enable verbose debug output', false)
+  .action(async (options) => {
+    // Handle --auto mode
+    if (options.auto) {
+      const { AutoExecutor } = await import('./auto-executor.js');
+      const autoExecutor = new AutoExecutor();
+
+      // Handle --no-ai flag with auto mode
+      if (options.ai === false) {
+        console.log('\n🤖 Quick Auto-Organize: Using heuristics (no AI)\n');
+        // Temporarily disable AI for this run
+        const oldAnthropicKey = process.env.ANTHROPIC_API_KEY;
+        const oldOpenAIKey = process.env.OPENAI_API_KEY;
+        const oldGoogleKey = process.env.GOOGLE_API_KEY;
+        delete process.env.ANTHROPIC_API_KEY;
+        delete process.env.OPENAI_API_KEY;
+        delete process.env.GOOGLE_API_KEY;
+      } else {
+        console.log('\n🤖 Quick Auto-Organize: AI will automatically organize your repository\n');
+      }
+
+      try {
+        const result = await autoExecutor.execute({
+          path: options.path,
+          dryRun: false,
+          verbose: options.verbose,
+          onProgress: (current, total, message) => {
+            if (options.verbose) {
+              console.log(`  [${current}/${total}] ${message}`);
+            } else if (current === total) {
+              console.log(`✅ ${message}\n`);
+            }
+          },
+        });
+
+        if (result.success) {
+          console.log(`Files analyzed: ${result.filesAnalyzed}`);
+          console.log(`Operations completed: ${result.operationsCompleted}`);
+          console.log(`Duration: ${(result.duration / 1000).toFixed(2)}s\n`);
+
+          if (result.backupManifestId) {
+            console.log(`📦 Backup created: ${result.backupManifestId}`);
+            console.log(`   Restore with: devibe restore ${result.backupManifestId}\n`);
+          }
+        } else {
+          console.error(`\n❌ Auto-organize failed:\n`);
+          for (const error of result.errors) {
+            console.error(`   ${error}`);
+          }
+          console.error('');
+          process.exit(1);
+        }
+      } catch (error) {
+        console.error(`\n❌ Error: ${error instanceof Error ? error.message : String(error)}\n`);
+        process.exit(1);
+      }
+      return;
+    }
+
+    // Default action: show status (original behavior)
+    const cwd = options.path;
+    const detector = new GitDetector();
+    const result = await detector.detectRepositories(cwd);
+
+    console.log('\n📊 UnVibe Status\n');
+
+    if (result.repositories.length === 0) {
+      console.log('⚠️  Not in a git repository.');
+      console.log('\nSuggested commands:');
+      console.log('  git init          Initialize a new repository');
+      console.log('  devibe --auto     Quick auto-organize (once in a git repo)');
+      return;
+    }
+
+    console.log(`Git repositories: ${result.repositories.length}`);
+    console.log(`Monorepo: ${result.hasMultipleRepos ? 'Yes' : 'No'}\n`);
+
+    // Check AI availability
+    const aiAvailable = await AIClassifierFactory.isAvailable();
+    const provider = await AIClassifierFactory.getPreferredProvider();
+
+    console.log('AI Classification:');
+    if (aiAvailable && provider) {
+      console.log(`  ✓ ${provider === 'anthropic' ? 'Anthropic Claude' : provider === 'google' ? 'Google Gemini' : 'OpenAI GPT-4'} available (90% accuracy)`);
+    } else {
+      console.log('  ⚠️  AI unavailable - using heuristics (65% accuracy)');
+      console.log('     To enable: Run `devibe ai-key add <provider> <api-key>`');
+    }
+    console.log();
+
+    // Check for build script in package.json (if Node.js project)
+    try {
+      const packageJsonPath = path.join(cwd, 'package.json');
+      const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
+
+      console.log('Build Configuration:');
+      if (packageJson.scripts?.build) {
+        console.log(`  ✓ Build script configured: "${packageJson.scripts.build}"`);
+      } else {
+        console.log('  ⚠️  No build script found');
+        console.log('     To enable validation: Add "build" script to package.json');
+      }
+      console.log();
+    } catch {
+      // Not a Node.js project or no package.json
+    }
+
+    console.log('Suggested commands:');
+    console.log('  devibe --auto          Quick auto-organize');
+    console.log('  devibe scan            Scan for secrets');
+    console.log('  devibe plan            Plan file distribution');
+    console.log('  devibe best-practices  Analyze repo best practices\n');
+  });
 
 program
   .command('detect')
@@ -116,63 +233,6 @@ program
 
       console.log('⚠️  Please review and remove secrets before committing.\n');
     }
-  });
-
-program
-  .command('status')
-  .description('Show repository status and suggested actions')
-  .action(async () => {
-    const cwd = process.cwd();
-    const detector = new GitDetector();
-    const result = await detector.detectRepositories(cwd);
-
-    console.log('\n📊 UnVibe Status\n');
-
-    if (result.repositories.length === 0) {
-      console.log('⚠️  Not in a git repository.');
-      console.log('\nSuggested commands:');
-      console.log('  git init          Initialize a new repository');
-      return;
-    }
-
-    console.log(`Git repositories: ${result.repositories.length}`);
-    console.log(`Monorepo: ${result.hasMultipleRepos ? 'Yes' : 'No'}\n`);
-
-    // Check AI availability
-    const aiAvailable = await AIClassifierFactory.isAvailable();
-    const provider = await AIClassifierFactory.getPreferredProvider();
-
-    console.log('AI Classification:');
-    if (aiAvailable && provider) {
-      console.log(`  ✓ ${provider === 'anthropic' ? 'Anthropic Claude' : provider === 'google' ? 'Google Gemini' : 'OpenAI GPT-4'} available (90% accuracy)`);
-    } else {
-      console.log('  ⚠️  AI unavailable - using heuristics (65% accuracy)');
-      console.log('     To enable: Run `devibe ai-key add <provider> <api-key>`');
-    }
-    console.log();
-
-    // Check for build script in package.json (if Node.js project)
-    try {
-      const packageJsonPath = path.join(cwd, 'package.json');
-      const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
-
-      console.log('Build Configuration:');
-      if (packageJson.scripts?.build) {
-        console.log(`  ✓ Build script configured: "${packageJson.scripts.build}"`);
-      } else {
-        console.log('  ⚠️  No build script found');
-        console.log('     To enable validation: Add "build" script to package.json');
-      }
-      console.log();
-    } catch {
-      // Not a Node.js project or no package.json
-    }
-
-    console.log('Suggested commands:');
-    console.log('  devibe scan            Scan for secrets');
-    console.log('  devibe plan            Plan root file distribution');
-    console.log('  devibe enforce         Enforce folder structure');
-    console.log('  devibe validate        Validate builds');
   });
 
 program
