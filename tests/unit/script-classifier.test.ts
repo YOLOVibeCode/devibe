@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { ScriptClassifier } from '../../src/script-classifier.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';

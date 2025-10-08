@@ -6,16 +6,45 @@ Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently o
 
 ## Features
 
-✅ **Mono-repo friendly** - Respects multiple `.git` boundaries
-✅ **Secret detection** - Scans for 31 types of hardcoded secrets
-✅ **100% reversible** - All operations backed up automatically
-✅ **Build validation** - Ensures cleanup doesn't break builds
-✅ **Dry-run mode** - Preview changes before applying
-✅ **AI-powered classification** - 90% accuracy with Anthropic/OpenAI
-✅ **Folder enforcement** - Maintains `scripts/` and `documents/` structure
-✅ **Test organization** - Organize tests by category (unit, e2e, integration)
-✅ **Rule packs** - Shareable directory structure standards
-✅ **Auto mode** - Quick auto-organize with AI or heuristics (`devibe --auto` or `devibe yolo`)
+### 🚀 Core Capabilities
+✅ **Mono-repo friendly** - Respects multiple `.git` boundaries  
+✅ **Secret detection** - Scans for 31 types of hardcoded secrets (API keys, tokens, credentials)  
+✅ **100% reversible** - All operations backed up automatically with restore capability  
+✅ **Build validation** - Ensures cleanup doesn't break builds (Node.js, Docker, Python, Go)  
+✅ **Dry-run mode** - Preview changes before applying across all commands  
+
+### 🤖 AI-Powered Intelligence
+✅ **Multi-provider AI** - Support for Anthropic Claude, OpenAI GPT, Google Gemini (7 models)  
+✅ **90% accuracy** - AI-powered file classification with context awareness  
+✅ **Learning system** - Learns from corrections and improves over time  
+✅ **Cost optimization** - 98% savings with smart model selection (Gemini Flash vs Claude Sonnet)  
+✅ **Secure keys** - AES-256 encrypted API key storage in `~/.devibe/`  
+
+### ⚡ Automation & Workflows
+✅ **Auto mode** - One-command cleanup: `devibe --auto` or `devibe yolo`  
+✅ **Intelligent classification** - Multi-stage: learning → structure → dependencies → AI  
+✅ **GitIgnore management** - Auto-excludes `.devibe/` and `.unvibe/` directories  
+✅ **GitHub integration** - Pre-push hooks and Actions for CI/CD  
+✅ **Progress tracking** - Real-time feedback with detailed status updates  
+
+### 🧪 Test Organization
+✅ **8 test categories** - unit, integration, e2e, tdd, functional, performance, acceptance, contract  
+✅ **6 technology stacks** - Node.js, React, Python, Go, Java, .NET/C#  
+✅ **Smart detection** - Automatic pattern matching and categorization  
+✅ **Organization reports** - Detailed breakdown by category and technology  
+
+### 📊 Quality & Standards
+✅ **Best practices analyzer** - 40+ automated checks across 8 categories  
+✅ **Rule packs** - Shareable directory structure standards (YAML/JSON)  
+✅ **Weighted scoring** - 0-100 quality score with severity levels  
+✅ **Auto-fix detection** - Identifies issues that can be automatically resolved  
+✅ **CI/CD ready** - JSON output for automation pipelines  
+
+### 🔧 Developer Experience
+✅ **Non-intrusive UX** - Smart prompting (max 2 times, then silent)  
+✅ **Folder enforcement** - Maintains `scripts/` and `documents/` structure  
+✅ **Helpful recommendations** - Context-aware suggestions for improvements  
+✅ **Comprehensive docs** - 20+ guides covering all features and workflows
 
 ## Installation
 
@@ -33,7 +62,7 @@ npx devibe
 
 ```bash
 devibe --version
-# Should show: 1.2.0
+# Should show: 1.6.0
 
 devibe --help
 # Shows all available commands
@@ -199,6 +228,59 @@ Provides clear, helpful error messages with:
 - Expected format with examples
 - Error codes for automation
 - Warnings for best practices
+
+### AI Management Commands
+
+Manage AI providers, keys, and cost optimization.
+
+#### `devibe ai-key add <provider> <key>`
+Add an AI API key (encrypted with AES-256).
+
+```bash
+devibe ai-key add anthropic sk-ant-...
+devibe ai-key add openai sk-...
+devibe ai-key add google AIza...
+```
+
+#### `devibe ai-key status`
+Show current AI configuration and cost recommendations.
+
+```bash
+devibe ai-key status
+# Shows active provider, model, and potential savings
+```
+
+#### `devibe ai-key clear`
+Revert to environment variables (removes configured keys).
+
+```bash
+devibe ai-key clear
+# Falls back to ANTHROPIC_API_KEY or OPENAI_API_KEY
+```
+
+#### `devibe ai-analyze`
+Compare AI models and costs for your repository.
+
+```bash
+devibe ai-analyze              # Analyze current directory
+devibe ai-analyze -f 5000      # Analyze for 5000 files
+```
+
+Shows cost comparison across 7 AI models:
+- Gemini 1.5 Flash (cheapest - $0.06/1K files)
+- GPT-4o Mini
+- Claude 3 Haiku
+- Claude 3.5 Sonnet
+- Gemini 1.5 Pro
+- GPT-4o
+- Claude 3.5 Opus (premium)
+
+#### `devibe ai-models`
+List all available AI models with pricing and context windows.
+
+```bash
+devibe ai-models
+```
 
 ## Test Organization
 

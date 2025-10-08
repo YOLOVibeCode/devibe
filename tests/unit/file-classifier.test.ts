@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { FileClassifier } from '../../src/file-classifier.js';
 
 describe('FileClassifier', () => {
