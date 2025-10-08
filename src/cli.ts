@@ -13,6 +13,7 @@ import { TestOrganizer, createTestOrganizer } from './test-organizer.js';
 import { RulePackValidator, formatValidationResult } from './rulepack-validator.js';
 import { RepoBestPracticesAnalyzer, formatBestPracticesReport } from './repo-best-practices.js';
 import { getKeyManager } from './ai-key-manager.js';
+import { getPreferencesManager } from './user-preferences.js';
 import { AVAILABLE_MODELS, selectModel, compareModels, estimateCost, type ModelConfig } from './ai-model-config.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -32,7 +33,7 @@ When the user mentions "run devibe" or asks about cleanup:
 5. Run: devibe validate        → Test that builds still work
 6. Run: devibe organize-tests  → Organize tests by category (unit, e2e, etc.)
 
-Quick cleanup: devibe --auto (one command does everything!)
+Quick cleanup: devibe --auto OR devibe yolo (same thing!)
 Before git push: devibe check-pr (simulates GitHub CI checks)
 
 Auto Mode (NEW):
@@ -48,7 +49,7 @@ Test commands:
 Context: This tool cleans up messy repos after AI coding sessions by organizing
 root files, enforcing folder structure, and detecting secrets - all with 100%
 reversible backups. Perfect for monorepos with multiple .git boundaries.`)
-  .version('1.5.2')
+  .version('1.5.3')
   .option('--auto', 'Quick auto-organize repository', false)
   .option('--no-ai', 'Use heuristics only (no AI)', false)
   .option('-p, --path <path>', 'Repository path', process.cwd())
@@ -819,54 +820,52 @@ program
 
 program
   .command('yolo')
-  .description('YOLO mode: aggressive auto-cleanup (use with caution!)')
+  .description('Quick auto-organize (same as --auto)')
   .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('-v, --verbose', 'Enable verbose debug output', false)
   .action(async (options) => {
-    console.log('\n⚡ YOLO MODE - Aggressive Auto-Cleanup\n');
+    console.log('\n⚡ YOLO MODE - Quick Auto-Organize\n');
+    console.log('💡 Tip: "devibe yolo" is equivalent to "devibe --auto"\n');
 
-    if (!AIClassifierFactory.isAvailable()) {
-      console.log('⚠️  WARNING: AI not available!');
-      console.log('   YOLO mode works best with AI classification.');
-      console.log('   Set ANTHROPIC_API_KEY or OPENAI_API_KEY for best results.\n');
-    }
+    const { AutoExecutor } = await import('./auto-executor.js');
+    const autoExecutor = new AutoExecutor();
 
-    console.log('🚀 Running full cleanup workflow...\n');
+    try {
+      const result = await autoExecutor.execute({
+        path: options.path,
+        dryRun: false,
+        verbose: options.verbose,
+        onProgress: (current, total, message) => {
+          if (options.verbose) {
+            console.log(`  [${current}/${total}] ${message}`);
+          } else if (current === total) {
+            console.log(`✅ ${message}\n`);
+          }
+        },
+      });
 
-    const yolo = new YoloMode();
-    const result = await yolo.run(options.path);
+      if (result.success) {
+        console.log(`Files analyzed: ${result.filesAnalyzed}`);
+        console.log(`Operations completed: ${result.operationsCompleted}`);
+        console.log(`Duration: ${(result.duration / 1000).toFixed(2)}s\n`);
 
-    // Display results
-    console.log('📊 Results:\n');
-    console.log(`  Secret Scan: ${result.steps.secretScan.found} found (${result.steps.secretScan.critical} critical)`);
-    console.log(`  Planning: ${result.steps.planning.operations} operations`);
-    console.log(`  Execution: ${result.steps.execution.completed} completed, ${result.steps.execution.failed} failed`);
-    console.log(`  Folder Enforcement: ${result.steps.folderEnforcement.operations} operations`);
-    console.log(`  Build Validation: ${result.steps.buildValidation.passed ? '✓ PASSED' : '✗ FAILED'}\n`);
+        if (result.backupManifestId) {
+          console.log(`📦 Backup created: ${result.backupManifestId}`);
+          console.log(`   Restore with: devibe restore ${result.backupManifestId}\n`);
+        }
 
-    if (result.warnings.length > 0) {
-      console.log('⚠️  Warnings:');
-      for (const warning of result.warnings) {
-        console.log(`  - ${warning}`);
+        console.log('✅ YOLO mode completed successfully!\n');
+      } else {
+        console.error(`\n❌ Auto-organize failed:\n`);
+        for (const error of result.errors) {
+          console.error(`   ${error}`);
+        }
+        console.error('');
+        process.exit(1);
       }
-      console.log();
-    }
-
-    if (result.errors.length > 0) {
-      console.log('❌ Errors:');
-      for (const error of result.errors) {
-        console.log(`  - ${error}`);
-      }
-      console.log();
-    }
-
-    if (result.success) {
-      console.log('✅ YOLO mode completed successfully!\n');
-      if (result.backupManifestId) {
-        console.log(`📦 Backup: ${result.backupManifestId}`);
-        console.log(`   Restore with: devibe restore ${result.backupManifestId}\n`);
-      }
-    } else {
-      console.log('⚠️  YOLO mode completed with warnings/errors.\n');
+    } catch (error) {
+      console.error(`\n❌ Error: ${error instanceof Error ? error.message : String(error)}\n`);
+      process.exit(1);
     }
   });
 
@@ -1432,13 +1431,20 @@ program
 program
   .command('ai-key')
   .description('Manage AI API keys')
-  .argument('<action>', 'Action: add, remove, list, show, clear, or status')
+  .argument('<action>', 'Action: add, remove, list, show, clear, status, or reset-prompt')
   .argument('[provider]', 'Provider: anthropic, openai, or google')
   .argument('[key]', 'API key value')
   .action(async (action, provider, key) => {
     const keyManager = getKeyManager();
 
     switch (action) {
+      case 'reset-prompt':
+        // Reset API key prompt preference
+        const preferences = getPreferencesManager();
+        await preferences.resetAPIKeyPrompt();
+        console.log('\n✅ API key prompt preference reset\n');
+        console.log('   You will be prompted again about API keys when using auto mode.\n');
+        break;
       case 'add':
         if (!provider || !key) {
           console.error('\n❌ Error: Missing provider or key');

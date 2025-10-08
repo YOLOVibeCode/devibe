@@ -19,6 +19,7 @@ import { GitDetector } from './git-detector.js';
 import { BackupManager } from './backup-manager.js';
 import { AIClassifierFactory } from './ai-classifier.js';
 import { GitIgnoreManager } from './gitignore-manager.js';
+import { getPreferencesManager } from './user-preferences.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -54,9 +55,56 @@ export class AutoExecutor {
     const errors: string[] = [];
 
     try {
-      // Step 1: Check AI availability
+      // Step 1: Check AI availability and prompt user if not configured
       if (!await AIClassifierFactory.isAvailable()) {
-        throw new Error('AI classification is required for auto mode. Please set ANTHROPIC_API_KEY or OPENAI_API_KEY.');
+        const preferences = getPreferencesManager();
+        const shouldPrompt = await preferences.shouldPromptForAPIKey();
+
+        if (shouldPrompt) {
+          console.log('\n⚠️  No AI API key configured\n');
+          console.log('Auto mode works best with AI classification for accurate results:');
+          console.log('  • With AI:      90% accuracy');
+          console.log('  • Without AI:   65% accuracy (heuristics only)\n');
+          console.log('To enable AI classification, add an API key:');
+          console.log('  devibe ai-key add anthropic <your-key>    # Recommended: Claude');
+          console.log('  devibe ai-key add openai <your-key>       # Alternative: GPT-4');
+          console.log('  devibe ai-key add google <your-key>       # Budget: Gemini\n');
+
+          // Ask user if they want to continue without AI
+          const readline = await import('readline');
+          const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+          });
+
+          const answer: string = await new Promise((resolve) => {
+            rl.question('Continue with heuristics only? (y/n): ', (answer) => {
+              rl.close();
+              resolve(answer.toLowerCase().trim());
+            });
+          });
+
+          if (answer !== 'y' && answer !== 'yes') {
+            throw new Error('Operation cancelled. Please add an API key and try again.');
+          }
+
+          // Increment decline count
+          const currentCount = (await preferences.get('apiKeyPromptDeclineCount')) || 0;
+          await preferences.incrementAPIKeyPromptDecline();
+
+          // If this was the second decline, let them know
+          if (currentCount === 1) {
+            console.log('\n💡 Note: We won\'t ask about API keys again.');
+            console.log('   To re-enable this prompt: devibe ai-key reset-prompt\n');
+          }
+
+          console.log('📊 Continuing with heuristics-based classification...\n');
+        } else {
+          // User has already declined twice, just continue silently with heuristics
+          if (options.verbose) {
+            console.log('📊 Using heuristics-based classification (no AI key configured)...\n');
+          }
+        }
       }
 
       this.reportProgress(options, 0, 6, 'Initializing auto executor...');

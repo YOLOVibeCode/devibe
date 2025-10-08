@@ -12,6 +12,8 @@ export interface UserPreferences {
   aiAnalysisPrompted?: boolean;
   aiAnalysisDeclineCount?: number;
   lastPromptDate?: string;
+  apiKeyPromptDisabled?: boolean;
+  apiKeyPromptDeclineCount?: number;
   version?: string;
 }
 
@@ -124,6 +126,54 @@ export class PreferencesManager {
     delete this.preferences.aiAnalysisPrompted;
     delete this.preferences.aiAnalysisDeclineCount;
     delete this.preferences.lastPromptDate;
+    await this.save();
+  }
+
+  /**
+   * Check if we should prompt for API key setup
+   * Returns true if user hasn't disabled it and hasn't declined twice
+   */
+  async shouldPromptForAPIKey(): Promise<boolean> {
+    await this.load();
+    if (this.preferences.apiKeyPromptDisabled) {
+      return false;
+    }
+    const declineCount = this.preferences.apiKeyPromptDeclineCount || 0;
+    return declineCount < 2;
+  }
+
+  /**
+   * Increment API key prompt decline count
+   */
+  async incrementAPIKeyPromptDecline(): Promise<void> {
+    await this.load();
+    const currentCount = this.preferences.apiKeyPromptDeclineCount || 0;
+    this.preferences.apiKeyPromptDeclineCount = currentCount + 1;
+
+    // After 2 declines, disable future prompts
+    if (currentCount + 1 >= 2) {
+      this.preferences.apiKeyPromptDisabled = true;
+    }
+
+    await this.save();
+  }
+
+  /**
+   * Disable API key prompts permanently
+   */
+  async disableAPIKeyPrompt(): Promise<void> {
+    await this.load();
+    this.preferences.apiKeyPromptDisabled = true;
+    await this.save();
+  }
+
+  /**
+   * Reset API key prompt state (for testing or user request)
+   */
+  async resetAPIKeyPrompt(): Promise<void> {
+    await this.load();
+    delete this.preferences.apiKeyPromptDisabled;
+    delete this.preferences.apiKeyPromptDeclineCount;
     await this.save();
   }
 

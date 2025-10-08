@@ -15,7 +15,7 @@ Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently o
 ✅ **Folder enforcement** - Maintains `scripts/` and `documents/` structure
 ✅ **Test organization** - Organize tests by category (unit, e2e, integration)
 ✅ **Rule packs** - Shareable directory structure standards
-✅ **YOLO mode** - Aggressive auto-cleanup for the brave
+✅ **Auto mode** - Quick auto-organize with AI or heuristics (`devibe --auto` or `devibe yolo`)
 
 ## Installation
 
@@ -44,6 +44,11 @@ devibe --help
 ## Quick Start
 
 ```bash
+# Quick auto-organize (recommended!)
+devibe --auto
+# or
+devibe yolo
+
 # Show repository status
 devibe
 
@@ -61,9 +66,6 @@ devibe enforce
 
 # Validate builds
 devibe validate
-
-# YOLO mode (aggressive cleanup)
-devibe yolo
 
 # Check repository best practices
 devibe best-practices
@@ -107,36 +109,48 @@ List all available backups.
 ### `devibe restore <id>`
 Restore from a backup.
 
-### `devibe yolo`
-YOLO mode: Run full cleanup workflow automatically.
+### `devibe yolo` or `devibe --auto`
+Quick auto-organize: Run full cleanup workflow automatically.
+
+**These commands are equivalent** - use whichever you prefer!
 
 **What it does:**
-1. Scans for secrets (stops if critical found)
-2. Plans and executes root file distribution
-3. Enforces folder structure
-4. Validates builds
-5. Creates backups automatically
+1. Uses AI classification (or heuristics if no API key)
+2. Plans and executes file organization
+3. Updates .gitignore files
+4. Creates backups automatically
+5. Generates documentation index
 
-⚠️ **Use with caution!** This mode makes automatic changes.
+**AI Key Handling:**
+- If no AI key is configured, you'll be prompted to add one (first 2 times only)
+- After declining twice, the tool will silently use heuristics to avoid being annoying
+- You can continue with heuristics (65% accuracy) or add a key for AI (90% accuracy)
+- Use `devibe ai-key add <provider> <key>` to configure AI
+- Re-enable prompts with: `devibe ai-key reset-prompt`
 
-### Auto Mode Commands
+⚠️ **Note:** This mode makes automatic changes but always creates backups first.
 
-**Fully automatic organization with zero prompts:**
+### Auto Mode Variants
 
+**Quick commands:**
 ```bash
-# With AI (90% accuracy) - Recommended
+devibe --auto           # Quick auto-organize (same as yolo)
+devibe yolo             # Quick auto-organize (same as --auto)
+devibe --auto --no-ai   # Force heuristics only (skip AI prompt)
+```
+
+**Advanced commands:**
+```bash
 devibe plan --auto              # Preview AI organization
 devibe execute --auto           # Execute AI organization
-
-# Without AI (65% accuracy) - Faster, no API keys needed
-devibe plan --auto --no-ai      # Preview heuristic organization  
-devibe execute --auto --no-ai   # Execute heuristic organization
+devibe execute --auto --no-ai   # Execute with heuristics only
 ```
 
 **When to use:**
-- 🤖 `--auto`: Trust AI to organize everything automatically
-- ⚡ `--auto --no-ai`: Fast cleanup without AI (uses heuristics)
-- See [AI Auto Mode Guide](./AI_AUTO_MODE_GUIDE.md) for details
+- 🤖 `devibe --auto` or `devibe yolo`: Quick cleanup with AI (recommended)
+- ⚡ `devibe --auto --no-ai`: Fast cleanup without AI prompts
+- 📋 `devibe plan --auto`: Preview before executing
+- See [AI Auto Mode Guide](./documents/AI_AUTO_MODE_GUIDE.md) for details
 
 ### `devibe init`
 Initialize UnVibe configuration file.

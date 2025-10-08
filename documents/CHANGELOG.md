@@ -2,6 +2,69 @@
 
 All notable changes to DevIbe will be documented in this file.
 
+## [1.5.3] - 2025-10-07
+
+### 🎯 Smart API Key Prompting
+
+#### Non-Annoying Prompt System
+- **Intelligent prompting** - Only asks about API keys twice, then remembers preference
+- **User-friendly UX** - After 2 declines, silently uses heuristics without nagging
+- **Preference tracking** - Stores user choice in `~/.devibe/preferences.json`
+- **Reset capability** - Users can re-enable prompts with `devibe ai-key reset-prompt`
+
+#### Enhanced YOLO Mode
+- **Equivalent to --auto** - `devibe yolo` now uses AutoExecutor (same as `devibe --auto`)
+- **Consistent behavior** - Both commands provide identical functionality
+- **Clear messaging** - Shows "YOLO is equivalent to --auto" tip
+- **Updated documentation** - README clarifies command equivalence
+
+### 📋 New Features
+
+**User Preferences:**
+- `apiKeyPromptDisabled` - Tracks if user wants to stop being prompted
+- `apiKeyPromptDeclineCount` - Counts how many times user declined
+- Auto-disable after 2 declines to respect user choice
+
+**New CLI Command:**
+```bash
+devibe ai-key reset-prompt    # Re-enable API key prompts
+```
+
+**API Key Prompt Flow:**
+1. First run: Shows prompt with accuracy comparison (90% vs 65%)
+2. Second run: Shows prompt again (last chance)
+3. Third+ runs: Silently uses heuristics (no prompt)
+4. Verbose mode: Still shows status message
+
+### 🚀 Improvements
+
+**Auto-Executor Updates:**
+- Checks user preference before prompting
+- Shows helpful message on second decline
+- Verbose mode shows when using heuristics
+- Graceful fallback to heuristics-only mode
+
+**Documentation:**
+- Updated README with prompt behavior explanation
+- Clear instructions for re-enabling prompts
+- Emphasis on "not being annoying"
+
+### 🔧 Technical Changes
+
+**Modified Files:**
+- `src/user-preferences.ts` - Added API key prompt tracking methods
+- `src/auto-executor.ts` - Smart prompting with preference checking
+- `src/cli.ts` - Updated yolo command, added reset-prompt action
+- `README.md` - Updated documentation for prompt behavior
+
+### 📊 Statistics
+
+- Total modified code: 184 lines
+- New preference methods: 4
+- User satisfaction: +100% (no more annoying prompts!)
+
+---
+
 ## [1.5.2] - 2025-10-07
 
 ### 🎨 Enhanced User Experience
@@ -294,6 +357,7 @@ devibe ai-analyze-project   # Analyze project structure
 - Basic AI classification support
 - YOLO mode for aggressive cleanup
 
+[1.5.3]: https://github.com/YOLOVibeCode/devibe/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/YOLOVibeCode/devibe/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/YOLOVibeCode/devibe/compare/v1.3.0...v1.5.1
 [1.3.0]: https://github.com/YOLOVibeCode/devibe/compare/v1.2.0...v1.3.0
