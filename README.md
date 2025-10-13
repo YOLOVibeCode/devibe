@@ -102,7 +102,7 @@ npx devibe
 
 ```bash
 devibe --version
-# Should show: 1.7.0
+# Should show: 1.7.1
 
 devibe --help
 # Shows all available commands

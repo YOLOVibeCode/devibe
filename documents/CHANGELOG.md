@@ -5,6 +5,20 @@ All notable changes to DevIbe will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2025-10-13
+
+### 🔧 Patch Release
+
+#### Fixed
+- **CLI Version Display** - Updated hardcoded version string in `src/cli.ts` to correctly display `1.7.1` when running `devibe --version`
+
+#### Technical Details
+- Updated `src/cli.ts` line 52: `.version('1.7.1')`
+- No functional changes, only version string correction
+- All 122 tests still passing
+
+---
+
 ## [1.7.0] - 2025-10-13
 
 ### 🎉 Major Feature: Markdown Consolidation
