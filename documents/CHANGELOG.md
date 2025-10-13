@@ -5,6 +5,157 @@ All notable changes to DevIbe will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2025-10-13
+
+### 🎉 Major Feature: Markdown Consolidation
+
+AI-powered documentation management that intelligently consolidates scattered markdown files into cohesive, navigable resources.
+
+#### 📝 New Command: `devibe consolidate`
+
+Tame documentation chaos with semantic analysis and intelligent clustering.
+
+```bash
+# Preview consolidation (recommended first step)
+devibe consolidate ./docs --dry-run
+
+# Interactive consolidation
+devibe consolidate ./docs -r
+
+# Auto-consolidate with AI
+devibe consolidate ./docs --auto -r --max-output 5
+
+# Exclude patterns
+devibe consolidate ./docs -r --exclude '**/archive/**'
+```
+
+#### ✨ Key Features
+
+**AI-Powered Analysis:**
+- **Topic clustering** - Groups files by semantic similarity using AI
+- **Relevance scoring** - Multi-factor analysis (recency, quality, connectivity, uniqueness)
+- **Status classification** - Highly relevant (70-100), Relevant (50-69), Marginal (30-49), Stale (0-29)
+- **Smart fallback** - Directory-based clustering when AI unavailable
+
+**Consolidation Strategies:**
+- `merge-by-topic` - Combine files on same topic
+- `merge-by-folder` - Combine files in same directory
+- `summarize-cluster` - Create AI-powered summaries
+- `create-super-readme` - Generate navigation hub
+- `archive-stale` - Move outdated files to archive
+
+**Safety & Validation:**
+- 💾 Automatic backups before all changes
+- ✅ Content preservation validation (max 30% loss = error, max 10% = warning)
+- 🔍 Broken link detection for relative markdown links
+- 🔄 Full rollback capability with `devibe restore`
+- 🛡️ Dry-run mode for safe preview
+
+**Documentation Hub:**
+- Auto-generates `DOCUMENTATION_HUB.md` with categorized navigation
+- Category icons (📚 Documentation, 📖 Guides, 📋 Specifications, 📝 Notes)
+- File metadata display (word count, last modified)
+- Relative path links for portability
+
+#### 🔧 Technical Implementation
+
+**New Files:**
+- `src/markdown-consolidation/types.ts` - Complete type system
+- `src/markdown-consolidation/markdown-scanner.ts` - File discovery & metadata extraction
+- `src/markdown-consolidation/markdown-analyzer.ts` - Relevance scoring engine
+- `src/markdown-consolidation/ai-content-analyzer.ts` - AI-powered clustering
+- `src/markdown-consolidation/markdown-consolidator.ts` - Consolidation orchestration
+- `src/markdown-consolidation/super-readme-generator.ts` - Documentation hub creation
+- `src/markdown-consolidation/consolidation-validator.ts` - Safety validation
+- `src/markdown-consolidation/index.ts` - Module exports
+
+**Test Coverage:**
+- 36 new tests (31 unit + 5 integration)
+- `tests/unit/markdown-consolidation/scanner.test.ts` - Scanner tests (8)
+- `tests/unit/markdown-consolidation/analyzer.test.ts` - Analyzer tests (16)
+- `tests/unit/markdown-consolidation/ai-analyzer.test.ts` - AI analyzer tests (7)
+- `tests/integration/markdown-consolidation.test.ts` - Integration tests (5)
+
+**Dependencies:**
+- `gray-matter` - Frontmatter parsing (already installed)
+- `fast-glob` - Efficient file scanning (newly added)
+
+**CLI Integration:**
+- Added `consolidate` command to `src/cli.ts` (lines 1802-2045)
+- Comprehensive help text with safety guidelines
+- Progress spinners with `ora`
+- Interactive confirmation with `inquirer` (unless --auto)
+
+#### 📊 Use Cases
+
+**Perfect for:**
+- Projects with 20+ scattered markdown files
+- Documentation cleanup after AI coding sessions
+- Consolidating legacy documentation
+- Creating single source of truth for team wikis
+- Organizing research notes and meeting docs
+
+**Example Scenarios:**
+- AI session creates 25 spec files → Consolidate into 3 topical docs
+- Team wiki has 50 files → Generate navigation hub
+- Old docs (6+ months) → Auto-archive stale content
+- Redundant guides → Merge into comprehensive single guide
+
+#### 🎯 Architecture Decisions
+
+**Design Principles:**
+1. **Interface Segregation** - Uses `ICanBackupFiles` interface from `BackupManager`
+2. **AI Provider Abstraction** - Works with Anthropic, OpenAI, Google via existing `AIProvider`
+3. **Safety First** - 100% backup before modifications, validation, rollback capability
+4. **Test-Driven Development** - All 36 tests passing
+
+**Relevance Scoring System:**
+- **Recency (0-25 points)** - Age-based with 7-day to 6-month decay
+- **Content Quality (0-25 points)** - Word count, structure, media richness
+- **Connectivity (0-25 points)** - Internal links to/from other files
+- **Uniqueness (0-25 points)** - Title and content uniqueness
+
+#### 📚 Documentation
+
+**New Documentation:**
+- `MARKDOWN_CONSOLIDATION_COMPLETE.md` - Implementation summary
+- `specs/08-MARKDOWN-CONSOLIDATION.md` - Complete specification (1200+ lines)
+- `specs/08-MARKDOWN-CONSOLIDATION-SUMMARY.md` - Executive summary
+- `design/03-MARKDOWN-CONSOLIDATION-DESIGN.md` - Architecture decisions
+- `design/03-MARKDOWN-CONSOLIDATION-CHECKLIST.md` - 89-task implementation checklist
+- `design/03-MARKDOWN-CONSOLIDATION-AI-IMPLEMENTATION.md` - AI implementation guide
+- `design/03-MARKDOWN-CONSOLIDATION-QUICKSTART.md` - Developer quick start
+- `QUICK_START_CONSOLIDATION.md` - User quick start guide
+- `AI-DEVELOPER-START-HERE.md` - Entry point for AI developers
+
+**Updated Documentation:**
+- `README.md` - Added "What's New" section, command documentation, examples
+- `documents/CHANGELOG.md` - This entry!
+
+#### 📈 Statistics
+
+- **Total new code:** 1,800+ lines
+- **Total documentation:** 3,500+ lines
+- **Test coverage:** 36 tests, 100% passing
+- **Total tests in project:** 122 (all passing)
+- **Implementation time:** ~2 hours
+- **Files affected:** 8 new TypeScript files, 4 test files
+
+#### ⚠️ Breaking Changes
+
+None. This is a purely additive feature.
+
+#### 🚀 Migration Notes
+
+No migration needed. All existing functionality preserved.
+
+**Requirements:**
+- AI must be enabled for consolidation to work
+- Run `devibe ai-key add <provider> <key>` to set up AI
+- Supports Anthropic Claude, OpenAI GPT, Google Gemini
+
+---
+
 ## [1.6.0] - 2025-10-08
 
 ### 🎉 Major Release - Production Ready

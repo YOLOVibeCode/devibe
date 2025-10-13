@@ -1,8 +1,8 @@
 # UnVibe Design Documents
 
-**Version:** 1.1
-**Last Updated:** 2025-10-02
-**Status:** Implementation Ready (Updated with Secret Detection)
+**Version:** 1.2  
+**Last Updated:** 2025-10-11  
+**Status:** Implementation Ready (Updated with Markdown Consolidation)
 
 ---
 
@@ -84,6 +84,91 @@ This directory contains comprehensive design documents for UnVibe with a strong 
 
 ---
 
+### [03-MARKDOWN-CONSOLIDATION-DESIGN.md](./03-MARKDOWN-CONSOLIDATION-DESIGN.md)
+**Markdown Consolidation Feature - Complete Design**
+
+- ✅ Component architecture and data flow
+- ✅ AI-powered analysis and clustering
+- ✅ Multi-strategy consolidation engine
+- ✅ Super README generation
+- ✅ Safety validation and content preservation
+- ✅ 6-week implementation timeline
+
+**Key Topics:**
+- Scanner, analyzer, and consolidator components
+- Multi-factor relevance scoring (0-100 points)
+- 5 consolidation strategies (merge, summarize, archive)
+- Performance optimization and caching
+- Testing strategy (90%+ coverage target)
+- Risk assessment and mitigation
+
+**Implementation Details:**
+- 6 major components, ~5,750 lines of code
+- Week-by-week implementation plan
+- Component-level design with full TypeScript interfaces
+- Integration with existing AI and backup systems
+
+---
+
+### [03-MARKDOWN-CONSOLIDATION-CHECKLIST.md](./03-MARKDOWN-CONSOLIDATION-CHECKLIST.md)
+**Markdown Consolidation - Developer Checklist**
+
+- ✅ 89 actionable tasks with time estimates
+- ✅ Day-by-day implementation schedule
+- ✅ Acceptance criteria for each phase
+- ✅ Test coverage tracking
+- ✅ Definition of done
+
+**Structure:**
+- Week 1: Core infrastructure (scanner)
+- Week 2: Analysis systems (basic + AI)
+- Week 3: Consolidation engine
+- Week 4: Super README + CLI
+- Week 5: Validation & safety
+- Week 6: Polish & launch
+
+**Daily Tracking:**
+- Checkbox for every task
+- Estimated hours per task
+- Acceptance criteria per phase
+- Performance targets
+- Test coverage goals
+
+---
+
+### [03-MARKDOWN-CONSOLIDATION-AI-IMPLEMENTATION.md](./03-MARKDOWN-CONSOLIDATION-AI-IMPLEMENTATION.md) ⭐
+**AI Developer Implementation Guide - START HERE**
+
+- ✅ Optimized for AI-assisted development
+- ✅ Sequential 9-step implementation
+- ✅ Complete code templates ready to use
+- ✅ Integration with existing systems
+- ✅ 38 hours focused implementation
+
+**What's Included:**
+- Complete TypeScript implementations
+- Integration points with existing AIProvider and BackupManager
+- Copy-paste ready code for all components
+- Test templates for 90%+ coverage
+- CLI integration examples
+- Common issues & solutions
+- Success criteria for each step
+
+**Implementation Steps:**
+1. Types & Interfaces (30 min)
+2. Scanner (4 hours)
+3. Basic Analyzer (4 hours)
+4. AI Analyzer (3 hours)
+5. Consolidator (8 hours)
+6. Super README (4 hours)
+7. Validator (3 hours)
+8. CLI Integration (3 hours)
+9. Tests (8 hours)
+
+**For AI Developers:** This document is structured for AI assistants (Claude, GPT, etc.) to implement the feature step-by-step with minimal human intervention.
+
+---
+
 ## Test Coverage Requirements
 
 ### Coverage Targets
@@ -93,9 +178,11 @@ This directory contains comprehensive design documents for UnVibe with a strong 
 | Safety Features | 100% | 100% | Critical |
 | Backup/Restore | 100% | 100% | Critical |
 | Secret Detection | 100% | 100% | Critical |
+| Markdown Validator | 100% | 100% | Critical |
 | Git Detection | 95% | 100% | High |
 | Distribution Engine | 95% | 98% | High |
 | Classification | 95% | 98% | High |
+| Markdown Consolidation | 90% | 95% | Medium |
 | AI Integration | 90% | 95% | Medium |
 | CLI Commands | 85% | 90% | Medium |
 | **Overall** | **85%** | **90%** | **Required** |

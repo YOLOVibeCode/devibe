@@ -52,6 +52,7 @@ reversible backups. Perfect for monorepos with multiple .git boundaries.`)
   .version('1.5.3')
   .option('--auto', 'Quick auto-organize repository', false)
   .option('--no-ai', 'Use heuristics only (no AI)', false)
+  .option('--consolidate-docs <mode>', 'Consolidate markdown docs: safe (folder-by-folder) or aggressive (summarize-all)', 'safe')
   .option('-p, --path <path>', 'Repository path', process.cwd())
   .option('-v, --verbose', 'Enable verbose debug output', false)
   .action(async (options) => {
@@ -79,6 +80,7 @@ reversible backups. Perfect for monorepos with multiple .git boundaries.`)
           path: options.path,
           dryRun: false,
           verbose: options.verbose,
+          consolidateDocs: options.consolidateDocs || 'safe',
           onProgress: (current, total, message) => {
             if (options.verbose) {
               console.log(`  [${current}/${total}] ${message}`);
@@ -303,6 +305,7 @@ program
   .option('-v, --verbose', 'Enable verbose debug output', false)
   .option('--auto', 'Automatically organize without prompts', false)
   .option('--no-ai', 'Use heuristics only (no AI)', false)
+  .option('--consolidate-docs <mode>', 'Consolidate markdown docs: safe or aggressive', 'none')
   .option('--no-usage-check', 'Skip usage detection for faster processing', false)
   .action(async (options) => {
     // Handle --auto mode
@@ -520,6 +523,7 @@ program
   .option('-v, --verbose', 'Enable verbose debug output', false)
   .option('--auto', 'Automatically execute without prompts', false)
   .option('--no-ai', 'Use heuristics only (no AI)', false)
+  .option('--consolidate-docs <mode>', 'Consolidate markdown docs: safe or aggressive', 'none')
   .option('--no-usage-check', 'Skip usage detection for faster processing', false)
   .action(async (options) => {
     // Handle --auto mode
@@ -550,6 +554,7 @@ program
           path: options.path,
           dryRun: options.dryRun,
           verbose: options.verbose,
+          consolidateDocs: options.consolidateDocs || 'none',
           onProgress: (current, total, message) => {
             if (options.verbose) {
               console.log(`  [${current}/${total}] ${message}`);
@@ -823,6 +828,7 @@ program
   .description('Quick auto-organize (same as --auto)')
   .option('-p, --path <path>', 'Repository path', process.cwd())
   .option('-v, --verbose', 'Enable verbose debug output', false)
+  .option('--consolidate-docs <mode>', 'Consolidate markdown docs: safe or aggressive', 'safe')
   .action(async (options) => {
     console.log('\n⚡ YOLO MODE - Quick Auto-Organize\n');
     console.log('💡 Tip: "devibe yolo" is equivalent to "devibe --auto"\n');
@@ -835,6 +841,7 @@ program
         path: options.path,
         dryRun: false,
         verbose: options.verbose,
+        consolidateDocs: options.consolidateDocs || 'safe',
         onProgress: (current, total, message) => {
           if (options.verbose) {
             console.log(`  [${current}/${total}] ${message}`);
@@ -1789,6 +1796,252 @@ program
 
     console.log('\n✅ Project structure analyzed and saved!');
     console.log('   AI will use this context for smarter classifications.\n');
+  });
+
+// Markdown Consolidation Command
+program
+  .command('consolidate [directory]')
+  .description(`Consolidate markdown documentation intelligently using AI
+
+Safety Guidelines:
+  • Always run with --dry-run first to preview changes
+  • Use --auto cautiously with large document sets (>20 files)
+  • All originals are backed up automatically
+  • Review consolidated files before deleting originals
+  • Use 'devibe restore' to rollback if needed`)
+  .option('-r, --recursive', 'Process subdirectories recursively', false)
+  .option('--max-output <number>', 'Maximum output files', '5')
+  .option('--dry-run', 'Preview without making changes (RECOMMENDED FIRST)', false)
+  .option('--auto', 'Auto-approve plan (use with caution for large sets)', false)
+  .option('--exclude <pattern>', 'Exclude file patterns (can be used multiple times)', (val, prev: string[]) => [...prev, val], [])
+  .action(async (directory: string = '.', options: any) => {
+    const { MarkdownScanner } = await import('./markdown-consolidation/markdown-scanner.js');
+    const { MarkdownAnalyzer } = await import('./markdown-consolidation/markdown-analyzer.js');
+    const { AIContentAnalyzer } = await import('./markdown-consolidation/ai-content-analyzer.js');
+    const { MarkdownConsolidator } = await import('./markdown-consolidation/markdown-consolidator.js');
+    const { SuperReadmeGenerator } = await import('./markdown-consolidation/super-readme-generator.js');
+    const { ConsolidationValidator } = await import('./markdown-consolidation/consolidation-validator.js');
+    const { AIClassifierFactory } = await import('./ai-classifier.js');
+    // @ts-ignore - ora types not found
+    const ora = (await import('ora')).default;
+    
+    console.log('\n📝 Markdown Consolidation\n');
+    
+    // Check AI availability
+    const aiAvailable = await AIClassifierFactory.isAvailable();
+    
+    if (!aiAvailable) {
+      console.error('❌ AI engine must be enabled for markdown consolidation');
+      console.error('   Markdown consolidation requires AI for:');
+      console.error('   • Topic clustering and semantic analysis');
+      console.error('   • Staleness detection');
+      console.error('   • Intelligent content summarization\n');
+      console.error('Setup AI with: devibe config set-key\n');
+      process.exit(1);
+    }
+    
+    // Get AI provider
+    const preferredProvider = await AIClassifierFactory.getPreferredProvider();
+    const providerToUse = (preferredProvider === 'google' ? 'anthropic' : preferredProvider) || 'anthropic';
+    const aiProvider = await AIClassifierFactory.create(providerToUse);
+    
+    if (!aiProvider) {
+      console.error('❌ Failed to initialize AI provider\n');
+      process.exit(1);
+    }
+    
+    // Initialize components
+    const scanner = new MarkdownScanner();
+    const analyzer = new MarkdownAnalyzer();
+    const aiAnalyzer = new AIContentAnalyzer(aiProvider);
+    const backupDir = path.join(directory, '.devibe', 'backups');
+    const backupManager = new BackupManager(backupDir);
+    const consolidator = new MarkdownConsolidator(aiAnalyzer, backupManager);
+    const readmeGenerator = new SuperReadmeGenerator();
+    const validator = new ConsolidationValidator();
+    
+    // Scan
+    const spinner = ora('Scanning directory...').start();
+    const files = await scanner.scan({
+      targetDirectory: directory,
+      recursive: options.recursive || false,
+      excludePatterns: options.exclude || [],
+      includeHidden: false
+    });
+    spinner.succeed(`Found ${files.length} markdown files`);
+    
+    if (files.length === 0) {
+      console.log('No markdown files found.\n');
+      return;
+    }
+    
+    // Analyze
+    spinner.start('Analyzing relevance and relationships...');
+    const analyses = files.map(f => analyzer.analyzeRelevance(f, files));
+    spinner.succeed('Analysis complete');
+    
+    // Show summary
+    console.log('\nAnalysis Summary:');
+    const byStatus = analyses.reduce((acc, a) => {
+      acc[a.status] = (acc[a.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    console.log(`  Highly Relevant: ${byStatus['highly-relevant'] || 0}`);
+    console.log(`  Relevant:        ${byStatus['relevant'] || 0}`);
+    console.log(`  Marginal:        ${byStatus['marginal'] || 0}`);
+    console.log(`  Stale:           ${byStatus['stale'] || 0}`);
+    
+    // Create plan
+    spinner.start('Creating consolidation plan...');
+    const plans = await consolidator.createPlan(files, {
+      maxOutputFiles: parseInt(options.maxOutput) || 5,
+      preserveOriginals: true,
+      createSuperReadme: true
+    });
+    spinner.succeed(`Created plan with ${plans.length} consolidations`);
+    
+    // Display plan
+    console.log('\nConsolidation Plan:');
+    for (let i = 0; i < plans.length; i++) {
+      const plan = plans[i];
+      console.log(`${i + 1}. ${plan.strategy}`);
+      console.log(`   Output: ${plan.outputFile}`);
+      console.log(`   Input:  ${plan.inputFiles.length} files`);
+    }
+    
+    const totalInput = plans.reduce((sum, p) => sum + p.inputFiles.length, 0);
+    const totalOutput = plans.length;
+    const reduction = Math.round((1 - totalOutput / totalInput) * 100);
+    
+    console.log(`\nImpact: ${totalInput} files → ${totalOutput} files (${reduction}% reduction)`);
+    
+    if (options.dryRun) {
+      console.log('\n✓ Dry run complete. No changes made.\n');
+      return;
+    }
+    
+    // Safety checks for --auto mode
+    if (options.auto) {
+      const fileCount = files.length;
+      const hasHighRiskStrategy = plans.some(p => 
+        p.strategy === 'summarize-cluster' || p.strategy === 'archive-stale'
+      );
+      
+      // Safety limit: Require explicit confirmation for large sets
+      if (fileCount > 20) {
+        console.log(`\n⚠️  Auto-mode safety check:`);
+        console.log(`   Found ${fileCount} files to consolidate`);
+        console.log(`   For large document sets, we recommend reviewing the plan first.\n`);
+        console.log(`Options:`);
+        console.log(`  1. Remove --auto flag to review plan interactively`);
+        console.log(`  2. Use --dry-run first to preview changes`);
+        console.log(`  3. Start with a smaller directory to test\n`);
+        
+        // Still allow, but warn
+        console.log(`⚡ Proceeding with auto-consolidation (backups will be created)...\n`);
+      }
+      
+      // Extra warning for high-risk strategies
+      if (hasHighRiskStrategy) {
+        console.log(`⚠️  High-risk strategy detected:`);
+        console.log(`   Summarization may lose content details`);
+        console.log(`   Review output carefully after consolidation\n`);
+      }
+    }
+    
+    // Confirm (interactive mode only)
+    if (!options.auto) {
+      // Show content preservation estimate
+      const totalWordCount = files.reduce((sum, f) => sum + f.metadata.wordCount, 0);
+      const avgWordsPerFile = Math.round(totalWordCount / files.length);
+      
+      console.log(`\n📊 Content Analysis:`);
+      console.log(`   Total words: ${totalWordCount.toLocaleString()}`);
+      console.log(`   Average per file: ${avgWordsPerFile} words`);
+      console.log(`   Consolidating to: ${plans.length} file(s)\n`);
+      
+      // @ts-ignore - inquirer types not found
+      const inquirer = (await import('inquirer')).default;
+      const { confirmed } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'confirmed',
+        message: 'Execute consolidation plan?',
+        default: false
+      }]);
+      
+      if (!confirmed) {
+        console.log('\nConsolidation cancelled.\n');
+        return;
+      }
+    }
+    
+    // Execute
+    console.log('\nExecuting consolidation...');
+    const results = [];
+    for (const plan of plans) {
+      const planSpinner = ora(plan.outputFile).start();
+      try {
+        const result = await consolidator.executePlan(plan);
+        results.push(result);
+        planSpinner.succeed();
+      } catch (error) {
+        planSpinner.fail(`Error: ${(error as Error).message}`);
+      }
+    }
+    
+    // Generate super README
+    spinner.start('Generating documentation hub...');
+    const superReadme = await readmeGenerator.generate(files);
+    await fs.writeFile(path.join(directory, 'DOCUMENTATION_HUB.md'), superReadme);
+    spinner.succeed('Documentation hub created');
+    
+    // Validate
+    spinner.start('Validating consolidation...');
+    const validation = await validator.validate(
+      files,
+      results.map(r => r.outputFile)
+    );
+    
+    if (validation.valid) {
+      spinner.succeed('Validation passed - Content preservation verified');
+    } else {
+      spinner.fail('⚠️  Validation found issues');
+      console.log('\n❌ Errors detected:');
+      validation.errors.forEach(e => console.error(`   ${e}`));
+      
+      console.log('\n🔄 To rollback changes:');
+      console.log(`   devibe restore`);
+      console.log(`   # Or manually restore from: ${backupDir}\n`);
+    }
+    
+    if (validation.warnings.length > 0) {
+      console.log('\n⚠️  Warnings:');
+      validation.warnings.forEach(w => console.warn(`   ${w}`));
+    }
+    
+    // Calculate actual content preservation
+    const originalWordCount = files.reduce((sum, f) => sum + f.metadata.wordCount, 0);
+    const successfulResults = results.filter(r => r.success);
+    
+    // Summary
+    console.log('\n✓ Consolidation Complete');
+    console.log(`\nResults:`);
+    console.log(`  • Created: ${successfulResults.length} consolidated file(s)`);
+    console.log(`  • Processed: ${totalInput} original file(s)`);
+    console.log(`  • Original words: ${originalWordCount.toLocaleString()}`);
+    console.log(`  • Backups: ${backupDir}`);
+    
+    console.log('\n📋 Next Steps:');
+    console.log('  1. Review consolidated files for accuracy');
+    console.log('  2. Check DOCUMENTATION_HUB.md for navigation');
+    console.log('  3. If satisfied, you can delete original files manually');
+    console.log('  4. If not satisfied: devibe restore\n');
+    
+    if (validation.errors.length > 0) {
+      console.log('⚠️  Due to validation errors, please review carefully before finalizing.\n');
+      process.exit(1);
+    }
   });
 
 // Show status by default if no command specified

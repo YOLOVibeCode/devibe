@@ -177,6 +177,28 @@ This directory contains comprehensive technical specifications for UnVibe, a CLI
 
 ---
 
+#### [08-MARKDOWN-CONSOLIDATION.md](./08-MARKDOWN-CONSOLIDATION.md)
+**Priority:** Medium  
+**Implementation:** Post-v1.0 (Phase 13)  
+**Dependencies:** AI Integration, Backup System, CLI Framework
+
+- Intelligent markdown analysis and consolidation
+- Relevance and staleness detection
+- AI-powered topic clustering
+- Content consolidation strategies
+- Super README generation
+
+**Key Topics:**
+- Markdown discovery and scanning (recursive)
+- Relevance scoring (recency, quality, connectivity, uniqueness)
+- AI-powered content analysis and topic clustering
+- Multiple consolidation strategies (merge, summarize, link-only)
+- Super README with organized navigation
+- 100% content preservation with backup
+- Two-phase finalization (preserve then confirm)
+
+---
+
 ## Implementation Roadmap
 
 ### Phase 1: Foundation (Weeks 1-2)
@@ -248,6 +270,14 @@ This directory contains comprehensive technical specifications for UnVibe, a CLI
 - Real-world validation
 - Performance optimization
 - Documentation
+
+### Phase 13: Markdown Consolidation (Post-v1.0, Weeks 17-22)
+- Markdown scanner with recursive support
+- Relevance and staleness detection
+- AI-powered topic clustering
+- Content consolidation engine
+- Super README generation
+- Two-phase finalization workflow
 
 ---
 
@@ -474,6 +504,7 @@ The following are explicitly NOT in scope for v1.0:
 | 05-BUILD-VALIDATION-SAFETY | ✅ Complete | 100% | Yes |
 | 06-CLI-INTERFACE | ✅ Complete | 100% | Yes |
 | 07-BACKUP-RESTORE | ✅ Complete | 100% | Yes |
+| 08-MARKDOWN-CONSOLIDATION | ✅ Complete | 100% | Yes |
 
 ---
 
@@ -514,6 +545,12 @@ For questions about these specifications:
 ---
 
 ## Change Log
+
+**2025-10-11** - Markdown consolidation specification added
+- Added 08-MARKDOWN-CONSOLIDATION specification
+- Comprehensive markdown analysis and consolidation system
+- AI-powered topic clustering and relevance detection
+- Super README generation for enhanced navigation
 
 **2025-10-02** - Initial specification documents created
 - All 8 specification documents completed

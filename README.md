@@ -4,6 +4,40 @@
 
 Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently organizes your repositories, respects git boundaries, and keeps your monorepos clean.
 
+## 🎉 What's New in v1.7.0
+
+### 📝 Markdown Consolidation (NEW!)
+
+Tame your documentation chaos! AI-powered markdown consolidation intelligently organizes scattered docs into cohesive, navigable resources.
+
+```bash
+# Consolidate markdown files in docs/
+devibe consolidate ./docs --dry-run
+
+# Auto-consolidate with AI clustering
+devibe consolidate ./docs --auto -r
+
+# Create documentation hub
+devibe consolidate . -r --max-output 5
+```
+
+**Features:**
+- 🤖 **AI-powered topic clustering** - Groups related documents semantically
+- 📊 **Relevance analysis** - Scores files on recency, quality, connectivity, uniqueness
+- 🔄 **Multiple strategies** - Merge by topic/folder, summarize, archive, or create index
+- 🛡️ **100% safe** - Automatic backups, content preservation validation, dry-run mode
+- 📚 **Auto-generated hub** - Creates `DOCUMENTATION_HUB.md` with categorized navigation
+
+**Perfect for:**
+- Projects with 20+ scattered markdown files
+- After AI coding sessions that generate multiple docs
+- Consolidating legacy documentation
+- Creating single source of truth for team wikis
+
+[See full documentation →](#devibe-consolidate)
+
+---
+
 ## Features
 
 ### 🚀 Core Capabilities
@@ -40,6 +74,12 @@ Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently o
 ✅ **Auto-fix detection** - Identifies issues that can be automatically resolved  
 ✅ **CI/CD ready** - JSON output for automation pipelines  
 
+### 📝 Documentation Management (NEW in v1.7.0)
+✅ **Markdown consolidation** - AI-powered doc organization with topic clustering  
+✅ **Relevance analysis** - Multi-factor scoring (recency, quality, connectivity)  
+✅ **Smart strategies** - Merge, summarize, archive, or create navigation hub  
+✅ **Content preservation** - Validation and backup with rollback capability  
+
 ### 🔧 Developer Experience
 ✅ **Non-intrusive UX** - Smart prompting (max 2 times, then silent)  
 ✅ **Folder enforcement** - Maintains `scripts/` and `documents/` structure  
@@ -62,7 +102,7 @@ npx devibe
 
 ```bash
 devibe --version
-# Should show: 1.6.0
+# Should show: 1.7.0
 
 devibe --help
 # Shows all available commands
@@ -101,6 +141,9 @@ devibe best-practices
 
 # Validate a rule pack file
 devibe validate-rulepack my-pack.json
+
+# Consolidate markdown documentation (NEW in v1.7.0!)
+devibe consolidate ./docs --dry-run
 ```
 
 ## Commands
@@ -228,6 +271,62 @@ Provides clear, helpful error messages with:
 - Expected format with examples
 - Error codes for automation
 - Warnings for best practices
+
+### `devibe consolidate`
+
+Consolidate markdown documentation using AI-powered semantic analysis.
+
+```bash
+# Preview consolidation (RECOMMENDED FIRST!)
+devibe consolidate ./docs --dry-run
+
+# Interactive consolidation
+devibe consolidate ./docs -r
+
+# Auto-consolidate with AI
+devibe consolidate ./docs --auto -r --max-output 5
+
+# Exclude patterns
+devibe consolidate ./docs -r --exclude '**/archive/**' --exclude '**/old/**'
+```
+
+**How it works:**
+1. 📂 **Scans** directory for markdown files
+2. 📊 **Analyzes** relevance (recency, quality, connectivity, uniqueness)
+3. 🤖 **Clusters** files by semantic similarity using AI
+4. 📋 **Creates plan** with consolidation strategies
+5. 💾 **Backs up** originals automatically
+6. ✅ **Validates** content preservation (max 30% loss allowed)
+7. 📚 **Generates** `DOCUMENTATION_HUB.md` navigation hub
+
+**Consolidation Strategies:**
+- **merge-by-topic** - Combine files on same topic
+- **merge-by-folder** - Combine files in same directory  
+- **summarize-cluster** - Create AI-powered summaries
+- **create-super-readme** - Generate navigation hub
+- **archive-stale** - Move outdated files to archive
+
+**Relevance Scoring:**
+- **Highly Relevant (70-100)** - Recent, high-quality, well-connected
+- **Relevant (50-69)** - Good quality, some connections
+- **Marginal (30-49)** - Consider consolidating or archiving
+- **Stale (0-29)** - Old, low quality, candidates for archiving
+
+**Safety Features:**
+- 🛡️ Always run with `--dry-run` first to preview
+- 💾 Automatic backups before any changes
+- ✅ Content preservation validation
+- 🔍 Broken link detection
+- 🔄 Full rollback with `devibe restore`
+
+**Options:**
+- `-r, --recursive` - Process subdirectories
+- `--max-output <number>` - Maximum consolidated files (default: 5)
+- `--dry-run` - Preview without changes (RECOMMENDED)
+- `--auto` - Auto-approve plan (use with caution)
+- `--exclude <pattern>` - Exclude file patterns (repeatable)
+
+⚠️ **Important:** Requires AI to be enabled. Run `devibe ai-key add <provider> <key>` first.
 
 ### AI Management Commands
 

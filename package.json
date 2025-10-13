@@ -1,7 +1,7 @@
 {
   "name": "devibe",
-  "version": "1.6.0",
-  "description": "Intelligent repository cleanup with auto mode, AI learning, context-aware classification, and cost optimization",
+  "version": "1.7.0",
+  "description": "Intelligent repository cleanup with auto mode, AI learning, markdown consolidation, context-aware classification, and cost optimization",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
@@ -80,6 +80,8 @@
   },
   "dependencies": {
     "commander": "^14.0.1",
-    "glob": "^11.0.0"
+    "fast-glob": "^3.3.3",
+    "glob": "^11.0.0",
+    "gray-matter": "^4.0.3"
   }
 }
