@@ -5,6 +5,30 @@ All notable changes to DevIbe will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2] - 2025-10-13
+
+### 🐛 Critical Bug Fix
+
+#### Fixed
+- **Missing Dependencies** - Added `ora` and `inquirer` to package.json dependencies
+  - These packages are required for the `consolidate` command but were missing
+  - Command would fail with `ERR_MODULE_NOT_FOUND` error
+  - Now properly included as production dependencies
+
+#### Dependencies Added
+- `inquirer@^9.2.12` - Interactive command line prompts
+- `ora@^8.0.1` - Progress spinners for long operations
+
+#### Technical Details
+- Issue discovered during production testing
+- Affects: `devibe consolidate` command
+- All 122 tests still passing
+- No other functional changes
+
+**IMPORTANT:** This fix is critical for the markdown consolidation feature to work. Users should upgrade immediately from 1.7.0 or 1.7.1.
+
+---
+
 ## [1.7.1] - 2025-10-13
 
 ### 🔧 Patch Release
