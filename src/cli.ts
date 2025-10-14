@@ -49,7 +49,7 @@ Test commands:
 Context: This tool cleans up messy repos after AI coding sessions by organizing
 root files, enforcing folder structure, and detecting secrets - all with 100%
 reversible backups. Perfect for monorepos with multiple .git boundaries.`)
-  .version('1.8.4')
+  .version('1.8.5')
   .option('--auto', 'Quick auto-organize repository', false)
   .option('--no-ai', 'Use heuristics only (no AI)', false)
   .option('--consolidate-docs <mode>', 'Consolidate markdown docs: safe (folder-by-folder) or aggressive (summarize-all)', 'safe')
@@ -61,9 +61,16 @@ reversible backups. Perfect for monorepos with multiple .git boundaries.`)
       const { AutoExecutor } = await import('./auto-executor.js');
       const autoExecutor = new AutoExecutor();
 
+      // Check if AI is actually available
+      const aiAvailable = await AIClassifierFactory.isAvailable();
+
       // Handle --no-ai flag with auto mode
-      if (options.ai === false) {
-        console.log('\n🤖 Quick Auto-Organize: Using heuristics (no AI)\n');
+      if (options.ai === false || !aiAvailable) {
+        if (options.ai === false) {
+          console.log('\n🤖 Quick Auto-Organize: Using heuristics (--no-ai specified)\n');
+        } else {
+          console.log('\n🤖 Quick Auto-Organize: Using heuristics (no AI configured)\n');
+        }
         // Temporarily disable AI for this run
         const oldAnthropicKey = process.env.ANTHROPIC_API_KEY;
         const oldOpenAIKey = process.env.OPENAI_API_KEY;
@@ -72,7 +79,7 @@ reversible backups. Perfect for monorepos with multiple .git boundaries.`)
         delete process.env.OPENAI_API_KEY;
         delete process.env.GOOGLE_API_KEY;
       } else {
-        console.log('\n🤖 Quick Auto-Organize: AI will automatically organize your repository\n');
+        console.log('\n🤖 Quick Auto-Organize: AI-powered classification enabled\n');
       }
 
       try {
