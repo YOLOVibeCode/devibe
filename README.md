@@ -4,37 +4,50 @@
 
 Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently organizes your repositories, respects git boundaries, and keeps your monorepos clean.
 
-## 🎉 What's New in v1.7.0
+## 🎉 What's New in v1.8.2
 
-### 📝 Markdown Consolidation (NEW!)
+### 🤖 Auto-Consolidate with Git Boundary Support (NEW!)
 
-Tame your documentation chaos! AI-powered markdown consolidation intelligently organizes scattered docs into cohesive, navigable resources.
+Fully automated markdown consolidation workflow that respects git repository boundaries!
 
 ```bash
-# Consolidate markdown files in docs/
-devibe consolidate ./docs --dry-run
+# Auto-consolidate current directory (respects git boundaries)
+devibe consolidate:auto
 
-# Auto-consolidate with AI clustering
-devibe consolidate ./docs --auto -r
+# Process monorepo - each nested repo processed independently
+devibe consolidate:auto /path/to/monorepo
 
-# Create documentation hub
-devibe consolidate . -r --max-output 5
+# With options
+devibe consolidate:auto --max-output 3 --suppress-toc
 ```
 
-**Features:**
-- 🤖 **AI-powered topic clustering** - Groups related documents semantically
-- 📊 **Relevance analysis** - Scores files on recency, quality, connectivity, uniqueness
-- 🔄 **Multiple strategies** - Merge by topic/folder, summarize, archive, or create index
-- 🛡️ **100% safe** - Automatic backups, content preservation validation, dry-run mode
-- 📚 **Auto-generated hub** - Creates `DOCUMENTATION_HUB.md` with categorized navigation
+**New in v1.8.2:**
+- 🔍 **Git-aware** - Automatically detects and processes each git repo independently
+- 🎯 **Monorepo support** - Handles nested repositories like a pro
+- 📊 **Multi-repo reporting** - Shows count of repositories processed
+
+**New in v1.8.0:**
+- 📂 **Automated workflow** - Moves files, consolidates, updates README automatically
+- 🏷️ **Intelligent naming** - Output files named based on content topics
+- 📝 **README integration** - Auto-updates README.md with summary index
+- 💾 **Backup tracking** - Creates date-sorted BACKUP_INDEX.md
+- 🛡️ **100% safe** - All originals preserved, full rollback capability
 
 **Perfect for:**
-- Projects with 20+ scattered markdown files
-- After AI coding sessions that generate multiple docs
-- Consolidating legacy documentation
-- Creating single source of truth for team wikis
+- Repository cleanup after AI coding sessions
+- Weekly/sprint documentation snapshots
+- Monorepo documentation management
+- Preparing consolidated docs for AI assistants
 
-[See full documentation →](#devibe-consolidate)
+[See full documentation →](#devibe-consolidateauto)
+
+---
+
+## 📝 Markdown Consolidation
+
+Advanced AI-powered markdown consolidation for interactive workflows.
+
+[See documentation →](#devibe-consolidate)
 
 ---
 
@@ -325,6 +338,70 @@ devibe consolidate ./docs -r --exclude '**/archive/**' --exclude '**/old/**'
 - `--dry-run` - Preview without changes (RECOMMENDED)
 - `--auto` - Auto-approve plan (use with caution)
 - `--exclude <pattern>` - Exclude file patterns (repeatable)
+
+⚠️ **Important:** Requires AI to be enabled. Run `devibe ai-key add <provider> <key>` first.
+
+### `devibe consolidate:auto`
+
+**NEW in v1.8.0+** Automated markdown consolidation workflow with intelligent organization.
+
+```bash
+# Basic usage (current directory)
+devibe consolidate:auto
+
+# With options
+devibe consolidate:auto --max-output 3 --suppress-toc
+
+# Exclude patterns
+devibe consolidate:auto --exclude '**/node_modules/**' --exclude '**/archive/**'
+
+# Specific directory
+devibe consolidate:auto /path/to/project
+```
+
+**Automated Workflow:**
+1. 📂 **Moves** all `*.md` files from root → `<root>/documents/`
+2. 🤖 **Clusters** files by semantic similarity (AI-powered)
+3. 📋 **Creates** consolidation plan (merge-by-topic strategy)
+4. ✍️ **Merges** content with source attributions
+5. 🏷️ **Names** output files intelligently (based on content topics)
+6. 📝 **Updates** README.md with summary index automatically
+7. 💾 **Creates** `.devibe/backups/BACKUP_INDEX.md` (date-sorted)
+
+**Git-Aware (v1.8.2+):**
+- 🔍 Automatically detects git repository boundaries
+- 🎯 Processes each git repo independently
+- ✅ Respects monorepo structures with nested repos
+- 📊 Shows count of repositories processed
+
+**Example with nested repos:**
+```bash
+cd /monorepo
+devibe consolidate:auto .
+
+# Result:
+# ✓ Processed 3 git repositories
+# /monorepo/.git          → documents/, consolidated files
+# /monorepo/project-a/.git → documents/, consolidated files
+# /monorepo/project-b/.git → documents/, consolidated files
+```
+
+**Safety:**
+- ✅ All original files preserved in `documents/`
+- ✅ Automatic backups before any changes
+- ✅ README.md safely updated with HTML markers
+- ✅ Full rollback with `devibe restore`
+
+**Options:**
+- `--max-output <number>` - Maximum output files (default: 5)
+- `--suppress-toc` - Suppress Table of Contents generation
+- `--exclude <pattern>` - Exclude file patterns (repeatable)
+
+**Use Cases:**
+- Repository cleanup after AI coding sessions
+- Weekly/sprint documentation consolidation
+- Project milestone snapshots
+- Preparing docs for AI assistants
 
 ⚠️ **Important:** Requires AI to be enabled. Run `devibe ai-key add <provider> <key>` first.
 
