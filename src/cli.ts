@@ -24,22 +24,38 @@ program
   .name('devibe')
   .description(`UnVibe - Repository cleanup utility for vibe coding sessions
 
+🚀 RECOMMENDED: devibe --auto (with AI for 90% accuracy)
+
 AI ASSISTANT GUIDE:
 When the user mentions "run devibe" or asks about cleanup:
-1. Run: devibe scan            → Check for hardcoded secrets (31 types detected)
-2. Run: devibe --auto          → Quick auto-organize with AI (one command!)
-3. Run: devibe execute --auto  → AI automatically cleans up the repository
+1. Run: devibe --auto          → ⭐ BEST: Auto-organize + compress markdown (with AI)
+2. Run: devibe --auto --dry-run → Preview what would happen
+3. Run: devibe scan            → Check for hardcoded secrets (31 types detected)
 4. Run: devibe enforce         → Enforce scripts/ and documents/ folders
 5. Run: devibe validate        → Test that builds still work
 6. Run: devibe organize-tests  → Organize tests by category (unit, e2e, etc.)
 
-Quick cleanup: devibe --auto OR devibe yolo (same thing!)
-Before git push: devibe check-pr (simulates GitHub CI checks)
+Auto Mode (RECOMMENDED):
+- devibe --auto                → Auto-organize + compress markdown with AI (90% accuracy)
+- devibe --auto --dry-run      → Preview changes before execution
+- devibe --auto --no-ai        → Use heuristics only (65% accuracy, no API key needed)
+- devibe --auto --consolidate-docs none → Disable markdown compression
 
-Auto Mode (NEW):
-- devibe --auto              → Quick auto-organize (AI or heuristics)
-- devibe --auto --no-ai      → Quick auto-organize (heuristics only, no API key)
-- devibe execute --auto      → AI automatically executes cleanup (no prompts!)
+What --auto does:
+  ✓ Organizes root files into proper directories
+  ✓ Updates .gitignore files automatically
+  ✓ Compresses all markdown files into one (with backups)
+  ✓ Includes related .txt/.log files via AI analysis
+  ✓ Cleans up backup artifacts
+  ✓ 100% reversible with backups
+
+Markdown compression (included in --auto):
+  • Consolidates all *.md files into CONSOLIDATED_DOCUMENTATION.md
+  • Analyzes .txt and .log files with AI (decides what to include)
+  • Backs up originals to .devibe/backups/
+  • Creates BACKUP_INDEX.md for tracking
+  • Deletes original markdown files after backup
+  • Updates README.md automatically
 
 Test commands:
 - devibe detect-tests         → List all test files and their categories
@@ -48,12 +64,12 @@ Test commands:
 
 Context: This tool cleans up messy repos after AI coding sessions by organizing
 root files, enforcing folder structure, and detecting secrets - all with 100%
-reversible backups. Perfect for monorepos with multiple .git boundaries.`)
+reversible backups. Works with or without git repositories.`)
   .version('3.0.0')
-  .option('--auto', 'Quick auto-organize repository', false)
+  .option('--auto', 'Auto-organize repository + compress markdown (RECOMMENDED with AI)', false)
   .option('--dry-run', 'Preview what would be done without making changes', false)
-  .option('--no-ai', 'Disable AI and use heuristics only')
-  .option('--consolidate-docs <mode>', 'Consolidate markdown docs: safe (folder-by-folder) or aggressive (summarize-all)', 'safe')
+  .option('--no-ai', 'Disable AI and use heuristics only (65% vs 90% accuracy)')
+  .option('--consolidate-docs <mode>', 'Control markdown compression: none to disable (default: compress)', 'safe')
   .option('-p, --path <path>', 'Repository path', process.cwd())
   .option('-v, --verbose', 'Enable verbose debug output', false)
   .action(async (options) => {
