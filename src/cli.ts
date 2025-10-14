@@ -49,9 +49,9 @@ Test commands:
 Context: This tool cleans up messy repos after AI coding sessions by organizing
 root files, enforcing folder structure, and detecting secrets - all with 100%
 reversible backups. Perfect for monorepos with multiple .git boundaries.`)
-  .version('1.8.5')
+  .version('1.8.6')
   .option('--auto', 'Quick auto-organize repository', false)
-  .option('--no-ai', 'Use heuristics only (no AI)', false)
+  .option('--no-ai', 'Disable AI and use heuristics only')
   .option('--consolidate-docs <mode>', 'Consolidate markdown docs: safe (folder-by-folder) or aggressive (summarize-all)', 'safe')
   .option('-p, --path <path>', 'Repository path', process.cwd())
   .option('-v, --verbose', 'Enable verbose debug output', false)
@@ -64,9 +64,11 @@ reversible backups. Perfect for monorepos with multiple .git boundaries.`)
       // Check if AI is actually available
       const aiAvailable = await AIClassifierFactory.isAvailable();
 
-      // Handle --no-ai flag with auto mode
-      if (options.ai === false || !aiAvailable) {
-        if (options.ai === false) {
+      // Handle AI mode selection
+      const userDisabledAI = options.ai === false; // --no-ai was explicitly passed
+
+      if (userDisabledAI || !aiAvailable) {
+        if (userDisabledAI) {
           console.log('\n🤖 Quick Auto-Organize: Using heuristics (--no-ai specified)\n');
         } else {
           console.log('\n🤖 Quick Auto-Organize: Using heuristics (no AI configured)\n');
