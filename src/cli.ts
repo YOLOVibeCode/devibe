@@ -51,6 +51,7 @@ root files, enforcing folder structure, and detecting secrets - all with 100%
 reversible backups. Perfect for monorepos with multiple .git boundaries.`)
   .version('1.8.8')
   .option('--auto', 'Quick auto-organize repository', false)
+  .option('--dry-run', 'Preview what would be done without making changes', false)
   .option('--no-ai', 'Disable AI and use heuristics only')
   .option('--consolidate-docs <mode>', 'Consolidate markdown docs: safe (folder-by-folder) or aggressive (summarize-all)', 'safe')
   .option('-p, --path <path>', 'Repository path', process.cwd())
@@ -85,7 +86,7 @@ reversible backups. Perfect for monorepos with multiple .git boundaries.`)
       try {
         const result = await autoExecutor.execute({
           path: options.path,
-          dryRun: false,
+          dryRun: options.dryRun || false,
           verbose: options.verbose,
           consolidateDocs: options.consolidateDocs || 'safe',
           onProgress: (current, total, message) => {

@@ -161,49 +161,57 @@ export class AutoExecutor {
         }
       );
 
-      if (plan.operations.length === 0) {
-        return {
-          success: true,
-          filesAnalyzed: 0,
-          filesMovedOrDeleted: 0,
-          operationsCompleted: 0,
-          operationsFailed: 0,
-          errors: [],
-          duration: Date.now() - startTime,
+      // Initialize result variables
+      let executionResult = {
+        success: true,
+        operationsCompleted: 0,
+        operationsFailed: 0,
+        backupManifestId: undefined as string | undefined,
+        errors: [] as string[],
+      };
+
+      // Step 5: Execute operations with backup (if any)
+      if (plan.operations.length > 0) {
+        this.reportProgress(
+          options,
+          5,
+          7,
+          `Executing ${plan.operations.length} operations...`
+        );
+
+        const backupManager = new BackupManager(
+          path.join(options.path, '.unvibe', 'backups')
+        );
+        const executor = new OperationExecutor(backupManager);
+
+        const execResult = await executor.execute(
+          plan,
+          options.dryRun || false
+        );
+
+        executionResult = {
+          success: execResult.success,
+          operationsCompleted: execResult.operationsCompleted,
+          operationsFailed: execResult.operationsFailed,
+          backupManifestId: execResult.backupManifestId,
+          errors: execResult.errors,
         };
-      }
 
-      // Step 5: Execute operations with backup
-      this.reportProgress(
-        options,
-        5,
-        7,
-        `Executing ${plan.operations.length} operations...`
-      );
-
-      const backupManager = new BackupManager(
-        path.join(options.path, '.unvibe', 'backups')
-      );
-      const executor = new OperationExecutor(backupManager);
-
-      const executionResult = await executor.execute(
-        plan,
-        options.dryRun || false
-      );
-
-      // Step 6.5: Create documentation index if documents were moved
-      if (!options.dryRun && executionResult.success) {
-        await this.createDocumentationIndex(options.path, plan.operations);
+        // Step 6.5: Create documentation index if documents were moved
+        if (!options.dryRun && executionResult.success) {
+          await this.createDocumentationIndex(options.path, plan.operations);
+        }
       }
 
       // Step 6.8: Consolidate markdown documentation if requested
-      if (!options.dryRun && executionResult.success && options.consolidateDocs && options.consolidateDocs !== 'none') {
+      if (executionResult.success && options.consolidateDocs && options.consolidateDocs !== 'none') {
         this.reportProgress(options, 6, 7, 'Consolidating markdown documentation...');
         try {
           await this.consolidateMarkdownDocumentation(
             options.path,
             options.consolidateDocs,
-            options.verbose || false
+            options.verbose || false,
+            options.dryRun || false
           );
         } catch (error) {
           if (options.verbose) {
@@ -299,204 +307,133 @@ export class AutoExecutor {
 
   /**
    * Consolidate markdown documentation
-   * 
+   *
    * @param repoPath - Repository path
    * @param mode - 'safe' for folder-by-folder, 'aggressive' for summarize-all
    * @param verbose - Enable verbose output
+   * @param dryRun - Preview what would be consolidated without making changes
    */
   private async consolidateMarkdownDocumentation(
     repoPath: string,
     mode: 'safe' | 'aggressive',
-    verbose: boolean
+    verbose: boolean,
+    dryRun: boolean = false
   ): Promise<void> {
-    const { MarkdownScanner } = await import('./markdown-consolidation/markdown-scanner.js');
-    const { MarkdownAnalyzer } = await import('./markdown-consolidation/markdown-analyzer.js');
-    const { AIContentAnalyzer } = await import('./markdown-consolidation/ai-content-analyzer.js');
-    const { MarkdownConsolidator } = await import('./markdown-consolidation/markdown-consolidator.js');
-    const { SuperReadmeGenerator } = await import('./markdown-consolidation/super-readme-generator.js');
-    const { AIClassifierFactory } = await import('./ai-classifier.js');
-    
-    // Check for documents directory
-    const documentsDir = path.join(repoPath, 'documents');
-    const hasDocuments = await fs.access(documentsDir).then(() => true).catch(() => false);
-    
-    if (!hasDocuments) {
+    try {
       if (verbose) {
-        console.log('   No documents/ directory found, skipping consolidation');
-      }
-      return;
-    }
-
-    // Get AI provider
-    const preferredProvider = await AIClassifierFactory.getPreferredProvider();
-    const providerToUse = (preferredProvider === 'google' ? 'anthropic' : preferredProvider) || 'anthropic';
-    const aiProvider = await AIClassifierFactory.create(providerToUse);
-    
-    if (!aiProvider) {
-      if (verbose) {
-        console.log('   AI provider not available, skipping consolidation');
-      }
-      return;
-    }
-
-    // Initialize components
-    const scanner = new MarkdownScanner();
-    const analyzer = new MarkdownAnalyzer();
-    const aiAnalyzer = new AIContentAnalyzer(aiProvider);
-    const backupDir = path.join(repoPath, '.unvibe', 'backups');
-    const backupManager = new BackupManager(backupDir);
-    const consolidator = new MarkdownConsolidator(aiAnalyzer, backupManager);
-    const readmeGenerator = new SuperReadmeGenerator();
-
-    // Scan for markdown files in documents/
-    const files = await scanner.scan({
-      targetDirectory: documentsDir,
-      recursive: true,
-      excludePatterns: ['node_modules', '.git', 'DOCUMENTATION_HUB.md'],
-      includeHidden: false
-    });
-
-    if (files.length === 0) {
-      if (verbose) {
-        console.log('   No markdown files found in documents/');
-      }
-      return;
-    }
-
-    if (verbose) {
-      console.log(`   Found ${files.length} markdown files`);
-    }
-
-    // Analyze relevance
-    const analysisResults = files.map(file => analyzer.analyzeRelevance(file, files));
-    const relevantFiles = analysisResults
-      .filter(r => r.status !== 'stale')
-      .map(r => r.file);
-
-    if (relevantFiles.length === 0) {
-      if (verbose) {
-        console.log('   No relevant files to consolidate');
-      }
-      return;
-    }
-
-    // Create consolidation plans based on mode
-    const plans = await this.createConsolidationPlans(
-      relevantFiles,
-      aiAnalyzer,
-      documentsDir,
-      mode,
-      verbose
-    );
-
-    if (plans.length === 0) {
-      if (verbose) {
-        console.log('   No consolidation needed');
-      }
-      return;
-    }
-
-    // Execute plans
-    for (const plan of plans) {
-      try {
-        await consolidator.executePlan(plan);
-        if (verbose) {
-          console.log(`   ✓ Consolidated: ${path.basename(plan.outputFile)}`);
-        }
-      } catch (error) {
-        if (verbose) {
-          console.error(`   ✗ Failed: ${(error as Error).message}`);
-        }
-      }
-    }
-
-    // Generate super README
-    const superReadme = await readmeGenerator.generate(relevantFiles);
-    await fs.writeFile(path.join(documentsDir, 'DOCUMENTATION_HUB.md'), superReadme);
-    
-    if (verbose) {
-      console.log('   ✓ Created DOCUMENTATION_HUB.md');
-    }
-  }
-
-  /**
-   * Create consolidation plans based on mode
-   */
-  private async createConsolidationPlans(
-    files: any[],
-    aiAnalyzer: any,
-    documentsDir: string,
-    mode: 'safe' | 'aggressive',
-    verbose: boolean
-  ): Promise<any[]> {
-    const plans: any[] = [];
-
-    if (mode === 'safe') {
-      // SAFE MODE: Folder-by-folder consolidation
-      // Group files by immediate parent folder
-      const filesByFolder = new Map<string, any[]>();
-      
-      for (const file of files) {
-        const relativePath = path.relative(documentsDir, file.path);
-        const folderPath = path.dirname(relativePath);
-        const folder = folderPath === '.' ? 'root' : folderPath.split(path.sep)[0];
-        
-        if (!filesByFolder.has(folder)) {
-          filesByFolder.set(folder, []);
-        }
-        filesByFolder.get(folder)!.push(file);
+        const action = dryRun ? 'Previewing' : 'Running';
+        console.log(`\n   📄 ${action} markdown consolidation...`);
       }
 
-      // Create one plan per folder (only if 2+ files)
-      for (const [folder, folderFiles] of filesByFolder) {
-        if (folderFiles.length >= 2) {
-          const outputFileName = folder === 'root' 
-            ? 'CONSOLIDATED_DOCS.md'
-            : `${folder.toUpperCase()}_CONSOLIDATED.md`;
-          
-          plans.push({
-            strategy: 'merge-by-folder' as const,
-            inputFiles: folderFiles,
-            outputFile: path.join(documentsDir, outputFileName),
-            topic: `${folder} Documentation`
-          });
+      // Use the new AutoConsolidateService which does everything
+      const { AutoConsolidateService } = await import('./markdown-consolidation/auto-consolidate-service.js');
+      const { MarkdownScanner } = await import('./markdown-consolidation/markdown-scanner.js');
+      const { MarkdownAnalyzer } = await import('./markdown-consolidation/markdown-analyzer.js');
+      const { AIContentAnalyzer } = await import('./markdown-consolidation/ai-content-analyzer.js');
+      const { MarkdownConsolidator } = await import('./markdown-consolidation/markdown-consolidator.js');
+      const { AIClassifierFactory } = await import('./ai-classifier.js');
+      const { BackupManager } = await import('./backup-manager.js');
 
+      // Get AI provider (optional)
+      const preferredProvider = await AIClassifierFactory.getPreferredProvider();
+      const providerToUse = (preferredProvider === 'google' ? 'anthropic' : preferredProvider) || 'anthropic';
+      const aiProvider = await AIClassifierFactory.create(providerToUse);
+
+      // Initialize components
+      const scanner = new MarkdownScanner();
+      const analyzer = new MarkdownAnalyzer();
+      const aiAnalyzer = new AIContentAnalyzer(aiProvider);
+      const backupDir = path.join(repoPath, '.devibe', 'backups');
+      const backupManager = new BackupManager(backupDir);
+      const consolidator = new MarkdownConsolidator(aiAnalyzer, backupManager);
+
+      // DRY RUN: Preview what would be consolidated
+      if (dryRun) {
+        const files = await scanner.scan({
+          targetDirectory: repoPath,
+          recursive: false,
+          excludePatterns: ['node_modules/**', '.git/**', '.devibe/**'],
+          includeHidden: false
+        });
+
+        const mdFiles = files.filter(f => path.basename(f.path).toLowerCase() !== 'readme.md');
+
+        if (mdFiles.length === 0) {
           if (verbose) {
-            console.log(`   Plan: Merge ${folderFiles.length} files in ${folder}/`);
+            console.log('   ℹ️  No markdown files to consolidate');
           }
+          return;
         }
+
+        console.log(`\n   📋 Consolidation Preview:`);
+        console.log(`   • Would consolidate ${mdFiles.length} markdown file(s):`);
+        for (const file of mdFiles) {
+          console.log(`     - ${path.basename(file.path)} (${file.metadata.wordCount} words)`);
+        }
+
+        // Check for related files (.txt, .log)
+        try {
+          const dirEntries = await fs.readdir(repoPath);
+          const relatedFiles = dirEntries.filter(f =>
+            ['.txt', '.log'].includes(path.extname(f).toLowerCase()) &&
+            !f.startsWith('.')
+          );
+
+          if (relatedFiles.length > 0) {
+            console.log(`\n   • Would analyze ${relatedFiles.length} related file(s) with AI:`);
+            for (const file of relatedFiles.slice(0, 5)) {
+              console.log(`     - ${file}`);
+            }
+            if (relatedFiles.length > 5) {
+              console.log(`     ... and ${relatedFiles.length - 5} more`);
+            }
+          }
+        } catch {
+          // Ignore if can't read directory
+        }
+
+        console.log(`\n   • Would create: CONSOLIDATED_DOCUMENTATION.md`);
+        console.log(`   • Would update: README.md (if exists)`);
+        console.log(`   • Would backup originals to: .devibe/backups/`);
+        console.log(`   • Would create: BACKUP_INDEX.md`);
+        console.log(`   • Would delete original markdown files after backup`);
+        console.log(`   • Would clean up UUID backup artifacts\n`);
+
+        return;
       }
 
-    } else if (mode === 'aggressive') {
-      // AGGRESSIVE MODE: Summarize everything into fewer docs
-      // Use AI clustering to group by topic
-      const clusters = await aiAnalyzer.clusterByTopic(files);
-      
+      // ACTUAL EXECUTION
+      const autoService = new AutoConsolidateService(
+        scanner,
+        analyzer,
+        aiAnalyzer,
+        consolidator,
+        backupManager
+      );
+
+      // Run consolidation in compress mode (default)
+      // This will consolidate all .md files, include related .txt files, and clean up
+      const result = await autoService.execute({
+        targetDirectory: repoPath,
+        mode: 'compress',  // Always use compress mode for --auto
+        maxOutputFiles: 1, // Single consolidated file
+        suppressToC: false,
+        respectGitBoundaries: false,  // Process current repo only
+        includeRelated: true  // Include .txt, .log files
+      });
+
+      if (result.success && verbose) {
+        console.log(`   ✓ Consolidated ${result.processedFiles} markdown files`);
+        if (result.consolidatedFiles.length > 0) {
+          console.log(`   ✓ Created: ${path.basename(result.consolidatedFiles[0])}`);
+        }
+      }
+    } catch (error) {
       if (verbose) {
-        console.log(`   Found ${clusters.length} topic clusters`);
+        console.error(`   ⚠️  Consolidation failed: ${(error as Error).message}`);
       }
-
-      // Create aggressive consolidation plans
-      for (const cluster of clusters) {
-        if (cluster.files.length >= 2) {
-          const outputFileName = `${cluster.name.replace(/\s+/g, '_').toUpperCase()}_SUMMARY.md`;
-          
-          plans.push({
-            strategy: 'summarize-cluster' as const,
-            inputFiles: cluster.files,
-            outputFile: path.join(documentsDir, outputFileName),
-            topic: cluster.name,
-            summary: cluster.summary
-          });
-
-          if (verbose) {
-            console.log(`   Plan: Summarize ${cluster.files.length} files → ${cluster.name}`);
-          }
-        }
-      }
+      // Don't throw - consolidation failure shouldn't stop the main cleanup
     }
-
-    return plans;
   }
 
   /**
