@@ -211,6 +211,9 @@ export class AutoConsolidateService {
       }
     }
 
+    // Step 6: Clean up any UUID backup artifacts left in root (from old devibe versions)
+    await this.cleanupBackupArtifacts(targetDir);
+
     return {
       success: true,
       mode: 'compress',
@@ -332,6 +335,9 @@ export class AutoConsolidateService {
     await fs.mkdir(deviveDir, { recursive: true });
     const backupIndexCreated = await this.createBackupIndex(deviveDir, filesToMove);
 
+    // Step 6: Clean up any UUID backup artifacts left in root (from old devibe versions)
+    await this.cleanupBackupArtifacts(targetDir);
+
     // NOTE: In document-archive mode, we KEEP the documents/ folder
 
     return {
@@ -452,6 +458,38 @@ Consider: Is it documentation-related? (commit messages, summaries, notes, plans
     } catch (error) {
       console.warn(`  ⚠️  Could not analyze ${filename}: ${(error as Error).message}`);
       return false;
+    }
+  }
+
+  /**
+   * Clean up UUID backup artifacts left in root directory
+   * These are from old devibe versions that wrote backups to wrong location
+   */
+  private async cleanupBackupArtifacts(targetDir: string): Promise<void> {
+    try {
+      const files = await fs.readdir(targetDir);
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\.json)?$/i;
+      let cleaned = 0;
+
+      for (const file of files) {
+        if (uuidPattern.test(file)) {
+          const filePath = path.join(targetDir, file);
+          const stat = await fs.stat(filePath);
+
+          // Only delete files, not directories
+          if (stat.isFile()) {
+            await fs.unlink(filePath);
+            cleaned++;
+          }
+        }
+      }
+
+      if (cleaned > 0) {
+        console.log(`🧹 Cleaned up ${cleaned} backup artifact(s) from root`);
+      }
+    } catch (error) {
+      // Silently fail - cleanup is not critical
+      console.warn(`⚠️  Could not clean backup artifacts: ${(error as Error).message}`);
     }
   }
 

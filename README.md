@@ -14,10 +14,8 @@ Choose your workflow: **Compress** (clean everything) or **Document-Archive** (o
 # COMPRESS MODE (default): Consolidate + clean up
 devibe consolidate:auto
 # → Clean root with only consolidated file + README
-
-# WITH AI FILE SELECTION: Include .txt, .log files automatically
-devibe consolidate:auto --include-related
-# → AI analyzes and includes commit messages, summaries, etc.
+# → AI automatically includes related .txt, .log files
+# → Cleans up UUID backup artifacts
 
 # DOCUMENT-ARCHIVE MODE: Organize into folders
 devibe consolidate:auto --document-archive
@@ -450,24 +448,28 @@ devibe consolidate:auto --document-archive --max-output 3
 **Options:**
 - `--document-archive` - Archive mode (preserves documents/ folder)
 - `--recursive-compress` - Compress mode: process all git boundaries
-- `--include-related` - **NEW!** Use AI to analyze and include related files (.txt, .log)
+- `--no-include-related` - Disable AI file analysis (enabled by default)
 - `--max-output <number>` - Maximum output files (default: 1 compress, 5 archive)
 - `--suppress-toc` - Suppress Table of Contents generation
 
-**🤖 AI-Powered File Selection (--include-related)**
+**🤖 AI-Powered File Selection (ENABLED BY DEFAULT)**
 
-Let AI decide which additional files should be included in consolidation:
+AI automatically decides which additional files (.txt, .log) should be included:
 
 ```bash
-# Include related documentation files (commit messages, summaries, etc.)
-devibe consolidate:auto --include-related
+# Default behavior - AI analyzes related files automatically
+devibe consolidate:auto
+
+# Disable AI file selection if you don't want it
+devibe consolidate:auto --no-include-related
 ```
 
-**What it does:**
+**What it does (automatically):**
 - 🔍 Scans for `.txt`, `.log` files in root directory
 - 🤖 Uses AI to analyze each file's content
 - ✅ Automatically includes documentation-related files
 - 📝 Shows AI reasoning for each inclusion
+- 🧹 Cleans up UUID backup artifacts from root
 
 **Example output:**
 ```
@@ -476,6 +478,7 @@ devibe consolidate:auto --include-related
   ✓ PHASE_2_SUMMARY.txt: phase completion documentation
 
 🔍 AI Analysis: Including 8 related files
+🧹 Cleaned up 12 backup artifact(s) from root
 ```
 
 **Use Cases:**
