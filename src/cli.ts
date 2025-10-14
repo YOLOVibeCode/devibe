@@ -2044,6 +2044,116 @@ Safety Guidelines:
     }
   });
 
+// ========================================
+// consolidate:auto command
+// ========================================
+program
+  .command('consolidate:auto [directory]')
+  .description(`Auto-consolidate markdown files with intelligent organization
+
+Automated Workflow:
+  1. Copy all *.md files in root → <root>/documents/
+  2. Cluster files by semantic similarity (AI)
+  3. Create consolidation plan (merge-by-topic strategy)
+  4. Merge content with source attributions
+  5. Intelligently name output files
+  6. Update README.md with summary index + description
+  7. Create .devibe/backups/BACKUP_INDEX.md (date-sorted)
+
+Safety:
+  • All original files are preserved in documents/
+  • Automatic backups before any changes
+  • README.md is safely updated with markers
+  • Full rollback with 'devibe restore'`)
+  .option('--max-output <number>', 'Maximum output files', '5')
+  .option('--suppress-toc', 'Suppress Table of Contents generation', false)
+  .option('--exclude <pattern>', 'Exclude file patterns (can be used multiple times)', (val, prev: string[]) => [...prev, val], [])
+  .action(async (directory: string = '.', options: any) => {
+    const { AutoConsolidateService } = await import('./markdown-consolidation/auto-consolidate-service.js');
+    const { MarkdownScanner } = await import('./markdown-consolidation/markdown-scanner.js');
+    const { MarkdownAnalyzer } = await import('./markdown-consolidation/markdown-analyzer.js');
+    const { AIContentAnalyzer } = await import('./markdown-consolidation/ai-content-analyzer.js');
+    const { MarkdownConsolidator } = await import('./markdown-consolidation/markdown-consolidator.js');
+    const { AIClassifierFactory } = await import('./ai-classifier.js');
+    const { BackupManager } = await import('./backup-manager.js');
+    // @ts-ignore - ora types not found
+    const ora = (await import('ora')).default;
+
+    console.log('\n🤖 Auto-Consolidate\n');
+
+    // Check AI availability
+    const aiAvailable = await AIClassifierFactory.isAvailable();
+
+    if (!aiAvailable) {
+      console.error('❌ AI engine must be enabled for auto-consolidation');
+      console.error('   Setup AI with: devibe ai-key add <provider> <key>\n');
+      process.exit(1);
+    }
+
+    // Get AI provider
+    const preferredProvider = await AIClassifierFactory.getPreferredProvider();
+    const providerToUse = (preferredProvider === 'google' ? 'anthropic' : preferredProvider) || 'anthropic';
+    const aiProvider = await AIClassifierFactory.create(providerToUse);
+
+    if (!aiProvider) {
+      console.error('❌ Failed to initialize AI provider\n');
+      process.exit(1);
+    }
+
+    // Initialize components
+    const backupManager = new BackupManager(path.resolve(directory));
+    const scanner = new MarkdownScanner();
+    const analyzer = new MarkdownAnalyzer();
+    const aiAnalyzer = new AIContentAnalyzer(aiProvider);
+    const consolidator = new MarkdownConsolidator(aiAnalyzer, backupManager);
+    const autoService = new AutoConsolidateService(
+      scanner,
+      analyzer,
+      aiAnalyzer,
+      consolidator,
+      backupManager
+    );
+
+    try {
+      // Execute auto-consolidation
+      let spinner = ora('Scanning root markdown files...').start();
+
+      const result = await autoService.execute({
+        targetDirectory: directory,
+        maxOutputFiles: parseInt(options.maxOutput),
+        suppressToC: options.suppressToc,
+        excludePatterns: options.exclude
+      });
+
+      spinner.succeed(`Auto-consolidation complete`);
+
+      // Display results
+      console.log('\n📊 Results:');
+      console.log(`  • Moved ${result.movedFiles} files to documents/`);
+      console.log(`  • Created ${result.consolidatedFiles.length} consolidated file(s):`);
+      result.consolidatedFiles.forEach(f => {
+        const basename = path.basename(f);
+        console.log(`    - ${basename}`);
+      });
+      console.log(`  • README.md ${result.readmeUpdated ? 'updated ✓' : 'not updated'}`);
+      console.log(`  • Backup index ${result.backupIndexCreated ? 'created ✓' : 'not created'}`);
+      console.log(`  • Backups: ${result.backupPath}`);
+
+      console.log('\n📁 Directory Structure:');
+      console.log(`  ${directory}/`);
+      console.log(`  ├── ${result.consolidatedFiles.map(f => path.basename(f)).join(', ')} (new)`);
+      console.log(`  ├── README.md (updated)`);
+      console.log(`  ├── documents/ (original files)`);
+      console.log(`  └── .devibe/backups/ (backups + BACKUP_INDEX.md)`);
+
+      console.log('\n✅ Auto-consolidation complete!\n');
+
+    } catch (error: any) {
+      console.error(`\n❌ Auto-consolidation failed: ${error.message}\n`);
+      process.exit(1);
+    }
+  });
+
 // Show status by default if no command specified
 if (process.argv.length === 2) {
   process.argv.push('status');

@@ -10,6 +10,7 @@ export { AIContentAnalyzer } from './ai-content-analyzer';
 export { MarkdownConsolidator } from './markdown-consolidator';
 export { SuperReadmeGenerator } from './super-readme-generator';
 export { ConsolidationValidator } from './consolidation-validator';
+export { AutoConsolidateService } from './auto-consolidate-service';
 export * from './types';
 
 
