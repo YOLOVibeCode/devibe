@@ -130,15 +130,12 @@ reversible backups. Perfect for monorepos with multiple .git boundaries.`)
     console.log('\n📊 UnVibe Status\n');
 
     if (result.repositories.length === 0) {
-      console.log('⚠️  Not in a git repository.');
-      console.log('\nSuggested commands:');
-      console.log('  git init          Initialize a new repository');
-      console.log('  devibe --auto     Quick auto-organize (once in a git repo)');
-      return;
+      console.log('ℹ️  No git repository detected (devibe works without git too)');
+      console.log(`Working directory: ${cwd}\n`);
+    } else {
+      console.log(`Git repositories: ${result.repositories.length}`);
+      console.log(`Monorepo: ${result.hasMultipleRepos ? 'Yes' : 'No'}\n`);
     }
-
-    console.log(`Git repositories: ${result.repositories.length}`);
-    console.log(`Monorepo: ${result.hasMultipleRepos ? 'Yes' : 'No'}\n`);
 
     // Check AI availability
     const aiAvailable = await AIClassifierFactory.isAvailable();

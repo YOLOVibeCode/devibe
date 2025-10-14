@@ -268,12 +268,18 @@ export class AutoExecutor {
     // Detect repositories
     const repoResult = await this.detector.detectRepositories(options.path);
 
-    if (repoResult.repositories.length === 0) {
-      throw new Error('No git repositories found.');
+    // If no git repos found, treat the directory as a single "non-git" repository
+    let repositoriesToProcess = repoResult.repositories;
+    if (repositoriesToProcess.length === 0) {
+      repositoriesToProcess = [{
+        path: options.path,
+        rootPath: options.path,
+        isRoot: true
+      }];
     }
 
     this.reportProgress(options, 1, 3, 'Analyzing project structure...');
-    await this.classifier.classifyBatch([], repoResult.repositories);
+    await this.classifier.classifyBatch([], repositoriesToProcess);
 
     // Create plan
     this.reportProgress(options, 2, 3, 'Creating execution plan...');
