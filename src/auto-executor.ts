@@ -206,6 +206,12 @@ export class AutoExecutor {
       // Step 6.8: Consolidate markdown documentation if requested
       if (executionResult.success && options.consolidateDocs && options.consolidateDocs !== 'none') {
         this.reportProgress(options, 6, 7, 'Consolidating markdown documentation...');
+
+        // Always show consolidation message (not just in verbose mode)
+        const mode = options.consolidateDocs === 'aggressive' ? 'aggressive' : 'safe';
+        const action = options.dryRun ? 'Would consolidate' : 'Consolidating';
+        console.log(`\n📄 ${action} markdown files (${mode} mode)...`);
+
         try {
           await this.consolidateMarkdownDocumentation(
             options.path,
@@ -214,9 +220,7 @@ export class AutoExecutor {
             options.dryRun || false
           );
         } catch (error) {
-          if (options.verbose) {
-            console.error(`⚠️  Markdown consolidation failed: ${(error as Error).message}`);
-          }
+          console.error(`\n⚠️  Markdown consolidation failed: ${(error as Error).message}`);
           // Don't fail the entire auto-executor if consolidation fails
         }
       }
@@ -326,9 +330,11 @@ export class AutoExecutor {
     dryRun: boolean = false
   ): Promise<void> {
     try {
+      // Note: Main consolidation message is shown by caller
+      // Only show this if in verbose mode for additional detail
       if (verbose) {
-        const action = dryRun ? 'Previewing' : 'Running';
-        console.log(`\n   📄 ${action} markdown consolidation...`);
+        const action = dryRun ? 'Preview' : 'Details';
+        console.log(`   ℹ️  ${action}:`);
       }
 
       // Use the new AutoConsolidateService which does everything
