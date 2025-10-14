@@ -1,6 +1,6 @@
 {
   "name": "devibe",
-  "version": "1.8.6",
+  "version": "1.8.7",
   "description": "Intelligent repository cleanup with auto mode, AI learning, markdown consolidation, auto-consolidate workflow, context-aware classification, and cost optimization",
   "main": "dist/index.js",
   "type": "module",

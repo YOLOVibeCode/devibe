@@ -49,7 +49,7 @@ Test commands:
 Context: This tool cleans up messy repos after AI coding sessions by organizing
 root files, enforcing folder structure, and detecting secrets - all with 100%
 reversible backups. Perfect for monorepos with multiple .git boundaries.`)
-  .version('1.8.6')
+  .version('1.8.7')
   .option('--auto', 'Quick auto-organize repository', false)
   .option('--no-ai', 'Disable AI and use heuristics only')
   .option('--consolidate-docs <mode>', 'Consolidate markdown docs: safe (folder-by-folder) or aggressive (summarize-all)', 'safe')
@@ -61,18 +61,11 @@ reversible backups. Perfect for monorepos with multiple .git boundaries.`)
       const { AutoExecutor } = await import('./auto-executor.js');
       const autoExecutor = new AutoExecutor();
 
-      // Check if AI is actually available
-      const aiAvailable = await AIClassifierFactory.isAvailable();
-
-      // Handle AI mode selection
+      // Handle --no-ai flag: if user explicitly disabled AI, skip all prompts
       const userDisabledAI = options.ai === false; // --no-ai was explicitly passed
 
-      if (userDisabledAI || !aiAvailable) {
-        if (userDisabledAI) {
-          console.log('\n🤖 Quick Auto-Organize: Using heuristics (--no-ai specified)\n');
-        } else {
-          console.log('\n🤖 Quick Auto-Organize: Using heuristics (no AI configured)\n');
-        }
+      if (userDisabledAI) {
+        console.log('\n🤖 Quick Auto-Organize: Using heuristics (--no-ai specified)\n');
         // Temporarily disable AI for this run
         const oldAnthropicKey = process.env.ANTHROPIC_API_KEY;
         const oldOpenAIKey = process.env.OPENAI_API_KEY;
@@ -81,7 +74,12 @@ reversible backups. Perfect for monorepos with multiple .git boundaries.`)
         delete process.env.OPENAI_API_KEY;
         delete process.env.GOOGLE_API_KEY;
       } else {
-        console.log('\n🤖 Quick Auto-Organize: AI-powered classification enabled\n');
+        // Check if AI is available
+        const aiAvailable = await AIClassifierFactory.isAvailable();
+        if (aiAvailable) {
+          console.log('\n🤖 Quick Auto-Organize: AI-powered classification enabled\n');
+        }
+        // If AI not available, let AutoExecutor handle prompting (it has the smart logic)
       }
 
       try {
