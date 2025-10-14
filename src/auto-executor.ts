@@ -114,12 +114,18 @@ export class AutoExecutor {
       this.reportProgress(options, 1, 7, 'Detecting repositories...');
       const repoResult = await this.detector.detectRepositories(options.path);
 
-      if (repoResult.repositories.length === 0) {
-        throw new Error('No git repositories found. Run "git init" first.');
+      // If no git repos found, treat the directory as a single "non-git" repository
+      let repositoriesToProcess = repoResult.repositories;
+      if (repositoriesToProcess.length === 0) {
+        repositoriesToProcess = [{
+          path: options.path,
+          rootPath: options.path,
+          isRoot: true
+        }];
       }
 
-      // Step 2.5: Update .gitignore files
-      if (!options.dryRun) {
+      // Step 2.5: Update .gitignore files (only for actual git repos)
+      if (!options.dryRun && repoResult.repositories.length > 0) {
         this.reportProgress(options, 2, 7, 'Updating .gitignore files...');
         const gitignoreResult = await this.gitignoreManager.updateAllRepositories(
           repoResult.repositories
@@ -132,7 +138,7 @@ export class AutoExecutor {
 
       // Step 3: Analyze project structure (for intelligent classification)
       this.reportProgress(options, 3, 7, 'Analyzing project structure...');
-      await this.classifier.classifyBatch([], repoResult.repositories);
+      await this.classifier.classifyBatch([], repositoriesToProcess);
 
       // Step 4: Create execution plan using intelligent classification
       this.reportProgress(options, 4, 7, 'Creating execution plan with AI...');
