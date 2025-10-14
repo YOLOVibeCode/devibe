@@ -4,9 +4,34 @@
 
 Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently organizes your repositories, respects git boundaries, and keeps your monorepos clean.
 
-## 🎉 What's New in v1.8.2
+## 🎉 What's New in v1.8.7
 
-### 🤖 Auto-Consolidate with Git Boundary Support (NEW!)
+### 🤖 Smart AI Prompting (NEW in v1.8.7!)
+
+When running `devibe --auto` without AI configured, you'll now get a helpful prompt:
+
+```
+⚠️  No AI API key configured
+
+Auto mode works best with AI classification for accurate results:
+  • With AI:      90% accuracy
+  • Without AI:   65% accuracy (heuristics only)
+
+To enable AI classification, add an API key:
+  devibe ai-key add anthropic <your-key>    # Recommended: Claude
+  devibe ai-key add openai <your-key>       # Alternative: GPT-4
+  devibe ai-key add google <your-key>       # Budget: Gemini
+
+Continue with heuristics only? (y/n):
+```
+
+**Features:**
+- 📊 **Clear accuracy comparison** - See the benefit of AI (90% vs 65%)
+- 🎯 **Smart decline tracking** - Only prompts twice, then remembers your choice
+- 🚫 **Skip with --no-ai** - Bypass prompts when you want heuristics only
+- ✅ **Works on any directory** - No git repository required
+
+### 🤖 Auto-Consolidate with Git Boundary Support (v1.8.2)
 
 Fully automated markdown consolidation workflow that respects git repository boundaries!
 
@@ -21,16 +46,15 @@ devibe consolidate:auto /path/to/monorepo
 devibe consolidate:auto --max-output 3 --suppress-toc
 ```
 
-**New in v1.8.2:**
+**Key Features:**
 - 🔍 **Git-aware** - Automatically detects and processes each git repo independently
 - 🎯 **Monorepo support** - Handles nested repositories like a pro
 - 📊 **Multi-repo reporting** - Shows count of repositories processed
-
-**New in v1.8.0:**
 - 📂 **Automated workflow** - Moves files, consolidates, updates README automatically
 - 🏷️ **Intelligent naming** - Output files named based on content topics
 - 📝 **README integration** - Auto-updates README.md with summary index
-- 💾 **Backup tracking** - Creates date-sorted BACKUP_INDEX.md
+- 💾 **Backup tracking** - Creates date-sorted BACKUP_INDEX.md in `.devibe/`
+- 🤖 **AI optional** - Works with or without AI configuration
 - 🛡️ **100% safe** - All originals preserved, full rollback capability
 
 **Perfect for:**
@@ -115,7 +139,7 @@ npx devibe
 
 ```bash
 devibe --version
-# Should show: 1.7.2
+# Should show: 1.8.7
 
 devibe --help
 # Shows all available commands
