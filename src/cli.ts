@@ -2076,6 +2076,7 @@ Safety:
   .option('--suppress-toc', 'Suppress Table of Contents generation', false)
   .option('--document-archive', 'Archive mode: move files to ./documents folder (preserves originals)', false)
   .option('--recursive-compress', 'Compress mode: recursively process all git boundaries', false)
+  .option('--include-related', 'Use AI to analyze and include related files (.txt, .log, etc.)', false)
   .action(async (directory: string = '.', options: any) => {
     const { AutoConsolidateService } = await import('./markdown-consolidation/auto-consolidate-service.js');
     const { MarkdownScanner } = await import('./markdown-consolidation/markdown-scanner.js');
@@ -2131,7 +2132,8 @@ Safety:
         maxOutputFiles: parseInt(options.maxOutput),
         suppressToC: options.suppressToc,
         respectGitBoundaries: true,
-        recursiveCompress: options.recursiveCompress || false
+        recursiveCompress: options.recursiveCompress || false,
+        includeRelated: options.includeRelated || false
       });
 
       spinner.succeed(`Auto-consolidation complete`);

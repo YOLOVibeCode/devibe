@@ -6,7 +6,7 @@ Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently o
 
 ## 🎉 What's New in v2.0.0
 
-### 🚀 Two Consolidation Modes (NEW in v2.0.0!)
+### 🚀 Two Consolidation Modes + AI File Selection (NEW in v2.0.0!)
 
 Choose your workflow: **Compress** (clean everything) or **Document-Archive** (organize and preserve).
 
@@ -14,6 +14,10 @@ Choose your workflow: **Compress** (clean everything) or **Document-Archive** (o
 # COMPRESS MODE (default): Consolidate + clean up
 devibe consolidate:auto
 # → Clean root with only consolidated file + README
+
+# WITH AI FILE SELECTION: Include .txt, .log files automatically
+devibe consolidate:auto --include-related
+# → AI analyzes and includes commit messages, summaries, etc.
 
 # DOCUMENT-ARCHIVE MODE: Organize into folders
 devibe consolidate:auto --document-archive
@@ -26,6 +30,7 @@ devibe consolidate:auto --recursive-compress
 **Features:**
 - 🗜️ **Compress Mode**: Consolidates all .md files into one, backs up, deletes originals
 - 📦 **Archive Mode**: Moves files to `./documents/` with AI organization, preserves originals
+- 🤖 **AI File Selection**: `--include-related` lets AI decide which .txt/.log files to include
 - 🔄 **Recursive Processing**: `--recursive-compress` for nested git boundaries
 - 🎯 **Smart Defaults**: Compress = 1 file, Archive = organized folders
 - 💾 **Full Safety**: All originals backed up in `.devibe/backups/`
@@ -445,8 +450,33 @@ devibe consolidate:auto --document-archive --max-output 3
 **Options:**
 - `--document-archive` - Archive mode (preserves documents/ folder)
 - `--recursive-compress` - Compress mode: process all git boundaries
+- `--include-related` - **NEW!** Use AI to analyze and include related files (.txt, .log)
 - `--max-output <number>` - Maximum output files (default: 1 compress, 5 archive)
 - `--suppress-toc` - Suppress Table of Contents generation
+
+**🤖 AI-Powered File Selection (--include-related)**
+
+Let AI decide which additional files should be included in consolidation:
+
+```bash
+# Include related documentation files (commit messages, summaries, etc.)
+devibe consolidate:auto --include-related
+```
+
+**What it does:**
+- 🔍 Scans for `.txt`, `.log` files in root directory
+- 🤖 Uses AI to analyze each file's content
+- ✅ Automatically includes documentation-related files
+- 📝 Shows AI reasoning for each inclusion
+
+**Example output:**
+```
+  ✓ COMMIT_MESSAGE.txt: detailed commit message with features
+  ✓ WEEK_4_SUMMARY.txt: project summary and accomplishments
+  ✓ PHASE_2_SUMMARY.txt: phase completion documentation
+
+🔍 AI Analysis: Including 8 related files
+```
 
 **Use Cases:**
 - **Compress**: Weekly cleanup, preparing AI context, milestone snapshots

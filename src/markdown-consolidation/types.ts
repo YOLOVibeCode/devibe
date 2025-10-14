@@ -92,5 +92,6 @@ export interface AutoConsolidateOptions {
   suppressToC?: boolean;
   respectGitBoundaries?: boolean;
   recursiveCompress?: boolean;  // For compress mode: recursively process git boundaries
+  includeRelated?: boolean;  // Use AI to analyze and include related files (.txt, etc.)
 }
 

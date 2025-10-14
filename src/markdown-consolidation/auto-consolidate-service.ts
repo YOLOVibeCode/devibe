@@ -152,7 +152,13 @@ export class AutoConsolidateService {
     };
 
     const files = await this.scanner.scan(scanOptions);
-    const filesToProcess = files.filter(f => path.basename(f.path).toLowerCase() !== 'readme.md');
+    let filesToProcess = files.filter(f => path.basename(f.path).toLowerCase() !== 'readme.md');
+
+    // Step 1.5: If includeRelated enabled, scan and analyze additional files
+    if (options.includeRelated && this.aiAnalyzer) {
+      const relatedFiles = await this.findAndAnalyzeRelatedFiles(targetDir);
+      filesToProcess = [...filesToProcess, ...relatedFiles];
+    }
 
     if (filesToProcess.length === 0) {
       return {
@@ -235,7 +241,13 @@ export class AutoConsolidateService {
     };
 
     const files = await this.scanner.scan(scanOptions);
-    const filesToMove = files.filter(f => path.basename(f.path).toLowerCase() !== 'readme.md');
+    let filesToMove = files.filter(f => path.basename(f.path).toLowerCase() !== 'readme.md');
+
+    // Step 1.5: If includeRelated enabled, scan and analyze additional files
+    if (options.includeRelated && this.aiAnalyzer) {
+      const relatedFiles = await this.findAndAnalyzeRelatedFiles(targetDir);
+      filesToMove = [...filesToMove, ...relatedFiles];
+    }
 
     if (filesToMove.length === 0) {
       return {
@@ -332,6 +344,115 @@ export class AutoConsolidateService {
       backupPath: deviveBackupDir,
       documentsFolder: documentsDir
     };
+  }
+
+  /**
+   * Find and analyze related files (.txt, etc.) to determine if they should be included
+   */
+  private async findAndAnalyzeRelatedFiles(targetDir: string): Promise<MarkdownFile[]> {
+    const relatedFiles: MarkdownFile[] = [];
+
+    try {
+      // Scan for .txt files (and other text-based formats)
+      const txtFiles = await fs.readdir(targetDir);
+      const relevantExtensions = ['.txt', '.log'];
+
+      for (const file of txtFiles) {
+        const filePath = path.join(targetDir, file);
+        const stat = await fs.stat(filePath);
+
+        // Skip directories
+        if (!stat.isFile()) continue;
+
+        // Check if it's a relevant extension
+        const ext = path.extname(file).toLowerCase();
+        if (!relevantExtensions.includes(ext)) continue;
+
+        // Skip if file is too large (> 1MB)
+        if (stat.size > 1024 * 1024) continue;
+
+        // Read content
+        const content = await fs.readFile(filePath, 'utf-8');
+
+        // Use AI to determine if this file should be included
+        const shouldInclude = await this.shouldIncludeFile(file, content);
+
+        if (shouldInclude) {
+          // Convert to MarkdownFile format
+          relatedFiles.push({
+            path: filePath,
+            relativePath: file,
+            name: file,
+            size: stat.size,
+            lastModified: stat.mtime,
+            content: content,
+            metadata: {
+              title: file.replace(ext, ''),
+              headers: [],
+              wordCount: content.split(/\s+/).length,
+              linkCount: 0,
+              codeBlockCount: 0,
+              imageCount: 0
+            }
+          });
+        }
+      }
+
+      if (relatedFiles.length > 0) {
+        console.log(`\n🔍 AI Analysis: Including ${relatedFiles.length} related files:`);
+        relatedFiles.forEach(f => console.log(`  • ${f.name}`));
+      }
+    } catch (error) {
+      console.warn(`⚠️  Could not analyze related files: ${(error as Error).message}`);
+    }
+
+    return relatedFiles;
+  }
+
+  /**
+   * Use AI to determine if a file should be included in consolidation
+   */
+  private async shouldIncludeFile(filename: string, content: string): Promise<boolean> {
+    // If no AI analyzer, don't include
+    if (!this.aiAnalyzer || !(this.aiAnalyzer as any).aiProvider) {
+      return false;
+    }
+
+    try {
+      const aiProvider = (this.aiAnalyzer as any).aiProvider;
+
+      // Create analysis content with special instructions
+      const analysisContent = `${content.substring(0, 500)}
+
+---
+ANALYSIS TASK: Should this file (${filename}) be included in documentation consolidation?
+Consider: Is it documentation-related? (commit messages, summaries, notes, plans)`;
+
+      // Use the classify method
+      const result = await aiProvider.classify(filename, analysisContent);
+
+      // Check if classification suggests it's documentation-related
+      // Look for keywords in the reasoning or if it's classified as documentation
+      const reasoning = result.reasoning?.toLowerCase() || '';
+      const isDocRelated = reasoning.includes('document') ||
+                          reasoning.includes('commit') ||
+                          reasoning.includes('summary') ||
+                          reasoning.includes('note') ||
+                          reasoning.includes('plan') ||
+                          reasoning.includes('overview') ||
+                          reasoning.includes('valuable') ||
+                          result.category === 'documentation';
+
+      if (isDocRelated) {
+        console.log(`  ✓ ${filename}: ${result.reasoning || 'documentation-related'}`);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.warn(`  ⚠️  Could not analyze ${filename}: ${(error as Error).message}`);
+      return false;
+    }
   }
 
   /**
