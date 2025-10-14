@@ -34,6 +34,7 @@ export interface AutoConsolidateOptions {
 export interface AutoConsolidateResult {
   success: boolean;
   movedFiles: number;
+  filesMovedToDocuments: number;
   consolidatedFiles: string[];
   readmeUpdated: boolean;
   backupIndexCreated: boolean;
@@ -83,6 +84,7 @@ export class AutoConsolidateService {
 
     // Process each git repository independently
     let totalMovedFiles = 0;
+    let totalFilesMovedToDocuments = 0;
     let allConsolidatedFiles: string[] = [];
     let anyReadmeUpdated = false;
     let anyBackupIndexCreated = false;
@@ -92,6 +94,7 @@ export class AutoConsolidateService {
       const repoResult = await this.executeSingleDirectory(repo.path, options);
 
       totalMovedFiles += repoResult.movedFiles;
+      totalFilesMovedToDocuments += repoResult.filesMovedToDocuments;
       allConsolidatedFiles.push(...repoResult.consolidatedFiles);
       anyReadmeUpdated = anyReadmeUpdated || repoResult.readmeUpdated;
       anyBackupIndexCreated = anyBackupIndexCreated || repoResult.backupIndexCreated;
@@ -103,6 +106,7 @@ export class AutoConsolidateService {
     return {
       success: true,
       movedFiles: totalMovedFiles,
+      filesMovedToDocuments: totalFilesMovedToDocuments,
       consolidatedFiles: allConsolidatedFiles,
       readmeUpdated: anyReadmeUpdated,
       backupIndexCreated: anyBackupIndexCreated,
@@ -131,10 +135,12 @@ export class AutoConsolidateService {
 
     const files = await this.scanner.scan(scanOptions);
 
+
     if (files.length === 0) {
       return {
         success: true,
         movedFiles: 0,
+        filesMovedToDocuments: 0,
         consolidatedFiles: [],
         readmeUpdated: false,
         backupIndexCreated: false,
@@ -142,30 +148,39 @@ export class AutoConsolidateService {
       };
     }
 
-    // Step 2: Copy files to documents/ directory
+    // Step 2: Move files to documents/ directory (except README.md which stays in root)
     await fs.mkdir(documentsDir, { recursive: true });
     const movedFiles: MarkdownFile[] = [];
+    const filesToMove = files.filter(f => path.basename(f.path).toLowerCase() !== 'readme.md');
 
-    for (const file of files) {
+    for (const file of filesToMove) {
       const destPath = path.join(documentsDir, path.basename(file.path));
-      await fs.copyFile(file.path, destPath);
 
-      // Update file reference
-      movedFiles.push({
-        ...file,
-        path: destPath,
-        relativePath: path.relative(targetDir, destPath)
-      });
+      try {
+        // Copy file to documents/
+        await fs.copyFile(file.path, destPath);
+
+        // Delete original from root
+        await fs.unlink(file.path);
+
+        // Update file reference
+        movedFiles.push({
+          ...file,
+          path: destPath,
+          relativePath: path.relative(targetDir, destPath)
+        });
+      } catch (error) {
+        console.error(`Failed to move file ${file.path}:`, (error as Error).message);
+        // Continue with other files
+      }
     }
 
-    // Step 3: Only consolidate if AI is available
+    // Step 3: Consolidate files (works with or without AI using fallback)
     const consolidatedFiles: string[] = [];
     let readmeUpdated = false;
 
-    // Check if AI analyzer is functional (has a non-null provider)
-    const hasAI = this.aiAnalyzer !== null && (this.aiAnalyzer as any).aiProvider !== null;
-
-    if (hasAI) {
+    // Always attempt consolidation (AI analyzer has built-in fallback for null provider)
+    if (movedFiles.length > 0) {
       try {
         // Step 3a: Analyze and cluster files
         const relevanceAnalyses = movedFiles.map(file =>
@@ -202,17 +217,21 @@ export class AutoConsolidateService {
       } catch (error) {
         // If consolidation fails, continue without it
         console.error(`⚠️  Consolidation failed: ${(error as Error).message}`);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('Stack trace:', (error as Error).stack);
+        }
       }
     }
 
     // Step 7: Create BACKUP_INDEX.md in .devibe/
     const deviveDir = path.join(targetDir, '.devibe');
     await fs.mkdir(deviveDir, { recursive: true });
-    const backupIndexCreated = await this.createBackupIndex(deviveDir, files);
+    const backupIndexCreated = await this.createBackupIndex(deviveDir, filesToMove);
 
     return {
       success: true,
       movedFiles: movedFiles.length,
+      filesMovedToDocuments: movedFiles.length,
       consolidatedFiles,
       readmeUpdated,
       backupIndexCreated,
@@ -244,9 +263,10 @@ export class AutoConsolidateService {
       .toUpperCase()
       .substring(0, 50);
 
-    // If multiple plans, add index
+    // Add CONSOLIDATED_ prefix to avoid collision with original files
+    // and make it clear this is a generated consolidation file
     const suffix = totalPlans > 1 ? `_${plan.strategy.split('-')[0].toUpperCase()}` : '';
-    const filename = `${sanitized}${suffix}.md`;
+    const filename = `CONSOLIDATED_${sanitized}${suffix}.md`;
 
     return path.join(targetDir, filename);
   }
