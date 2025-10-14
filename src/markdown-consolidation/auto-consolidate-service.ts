@@ -21,12 +21,14 @@ import { MarkdownAnalyzer } from './markdown-analyzer';
 import { AIContentAnalyzer } from './ai-content-analyzer';
 import { MarkdownConsolidator } from './markdown-consolidator';
 import { BackupManager } from '../backup-manager';
+import { GitDetector } from '../git-detector';
 
 export interface AutoConsolidateOptions {
   targetDirectory: string;
   maxOutputFiles?: number;
   suppressToC?: boolean;
   excludePatterns?: string[];
+  respectGitBoundaries?: boolean;
 }
 
 export interface AutoConsolidateResult {
@@ -36,6 +38,7 @@ export interface AutoConsolidateResult {
   readmeUpdated: boolean;
   backupIndexCreated: boolean;
   backupPath: string;
+  repositoriesProcessed?: number;
 }
 
 export class AutoConsolidateService {
@@ -49,9 +52,72 @@ export class AutoConsolidateService {
 
   /**
    * Execute the full auto-consolidate workflow
+   * Respects git boundaries if enabled
    */
   async execute(options: AutoConsolidateOptions): Promise<AutoConsolidateResult> {
     const targetDir = path.resolve(options.targetDirectory);
+
+    // If respecting git boundaries, detect and process each repo separately
+    if (options.respectGitBoundaries !== false) { // Default to true
+      return await this.executeWithGitBoundaries(targetDir, options);
+    }
+
+    // Otherwise, process single directory
+    return await this.executeSingleDirectory(targetDir, options);
+  }
+
+  /**
+   * Execute consolidation respecting git boundaries
+   */
+  private async executeWithGitBoundaries(
+    targetDir: string,
+    options: AutoConsolidateOptions
+  ): Promise<AutoConsolidateResult> {
+    const gitDetector = new GitDetector();
+    const gitResult = await gitDetector.detectRepositories(targetDir);
+
+    if (gitResult.repositories.length === 0) {
+      // No git repos found, process as single directory
+      return await this.executeSingleDirectory(targetDir, options);
+    }
+
+    // Process each git repository independently
+    let totalMovedFiles = 0;
+    let allConsolidatedFiles: string[] = [];
+    let anyReadmeUpdated = false;
+    let anyBackupIndexCreated = false;
+    let backupPaths: string[] = [];
+
+    for (const repo of gitResult.repositories) {
+      const repoResult = await this.executeSingleDirectory(repo.path, options);
+
+      totalMovedFiles += repoResult.movedFiles;
+      allConsolidatedFiles.push(...repoResult.consolidatedFiles);
+      anyReadmeUpdated = anyReadmeUpdated || repoResult.readmeUpdated;
+      anyBackupIndexCreated = anyBackupIndexCreated || repoResult.backupIndexCreated;
+      if (repoResult.backupPath) {
+        backupPaths.push(repoResult.backupPath);
+      }
+    }
+
+    return {
+      success: true,
+      movedFiles: totalMovedFiles,
+      consolidatedFiles: allConsolidatedFiles,
+      readmeUpdated: anyReadmeUpdated,
+      backupIndexCreated: anyBackupIndexCreated,
+      backupPath: backupPaths.join(', '),
+      repositoriesProcessed: gitResult.repositories.length
+    };
+  }
+
+  /**
+   * Execute consolidation for a single directory
+   */
+  private async executeSingleDirectory(
+    targetDir: string,
+    options: AutoConsolidateOptions
+  ): Promise<AutoConsolidateResult> {
     const documentsDir = path.join(targetDir, 'documents');
     const deviveBackupDir = path.join(targetDir, '.devibe', 'backups');
 

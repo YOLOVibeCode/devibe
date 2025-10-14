@@ -49,7 +49,7 @@ Test commands:
 Context: This tool cleans up messy repos after AI coding sessions by organizing
 root files, enforcing folder structure, and detecting secrets - all with 100%
 reversible backups. Perfect for monorepos with multiple .git boundaries.`)
-  .version('1.8.1')
+  .version('1.8.2')
   .option('--auto', 'Quick auto-organize repository', false)
   .option('--no-ai', 'Use heuristics only (no AI)', false)
   .option('--consolidate-docs <mode>', 'Consolidate markdown docs: safe (folder-by-folder) or aggressive (summarize-all)', 'safe')
@@ -2122,13 +2122,17 @@ Safety:
         targetDirectory: directory,
         maxOutputFiles: parseInt(options.maxOutput),
         suppressToC: options.suppressToc,
-        excludePatterns: options.exclude
+        excludePatterns: options.exclude,
+        respectGitBoundaries: true  // Always respect git boundaries
       });
 
       spinner.succeed(`Auto-consolidation complete`);
 
       // Display results
       console.log('\n📊 Results:');
+      if (result.repositoriesProcessed && result.repositoriesProcessed > 1) {
+        console.log(`  • Processed ${result.repositoriesProcessed} git repositories`);
+      }
       console.log(`  • Moved ${result.movedFiles} files to documents/`);
       console.log(`  • Created ${result.consolidatedFiles.length} consolidated file(s):`);
       result.consolidatedFiles.forEach(f => {
