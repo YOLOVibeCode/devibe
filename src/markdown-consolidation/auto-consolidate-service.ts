@@ -158,43 +158,57 @@ export class AutoConsolidateService {
       });
     }
 
-    // Step 3: Analyze and cluster files (optional - for logging/reporting)
-    const relevanceAnalyses = movedFiles.map(file =>
-      this.analyzer.analyzeRelevance(file, movedFiles)
-    );
-
-    const consolidationOptions: ConsolidationOptions = {
-      maxOutputFiles: options.maxOutputFiles || 5,
-      preserveOriginals: true,
-      createSuperReadme: false
-    };
-
-    // Step 4: Create consolidation plan
-    const plans = await this.consolidator.createPlan(movedFiles, consolidationOptions);
-
-    // Step 5: Execute consolidation with intelligent naming
+    // Step 3: Only consolidate if AI is available
     const consolidatedFiles: string[] = [];
-    for (const plan of plans) {
-      // Generate intelligent output filename
-      const outputFile = await this.generateIntelligentFilename(targetDir, plan, plans.length);
-      plan.outputFile = outputFile;
+    let readmeUpdated = false;
 
-      const result = await this.consolidator.executePlan(plan);
+    // Check if AI analyzer is functional (has a non-null provider)
+    const hasAI = this.aiAnalyzer !== null && (this.aiAnalyzer as any).aiProvider !== null;
 
-      // Optionally suppress ToC
-      if (options.suppressToC) {
-        await this.suppressTableOfContents(outputFile);
+    if (hasAI) {
+      try {
+        // Step 3a: Analyze and cluster files
+        const relevanceAnalyses = movedFiles.map(file =>
+          this.analyzer.analyzeRelevance(file, movedFiles)
+        );
+
+        const consolidationOptions: ConsolidationOptions = {
+          maxOutputFiles: options.maxOutputFiles || 5,
+          preserveOriginals: true,
+          createSuperReadme: false
+        };
+
+        // Step 4: Create consolidation plan
+        const plans = await this.consolidator.createPlan(movedFiles, consolidationOptions);
+
+        // Step 5: Execute consolidation with intelligent naming
+        for (const plan of plans) {
+          // Generate intelligent output filename
+          const outputFile = await this.generateIntelligentFilename(targetDir, plan, plans.length);
+          plan.outputFile = outputFile;
+
+          const result = await this.consolidator.executePlan(plan);
+
+          // Optionally suppress ToC
+          if (options.suppressToC) {
+            await this.suppressTableOfContents(outputFile);
+          }
+
+          consolidatedFiles.push(result.outputFile);
+        }
+
+        // Step 6: Update README.md with summary index
+        readmeUpdated = await this.updateReadmeWithSummary(targetDir, consolidatedFiles);
+      } catch (error) {
+        // If consolidation fails, continue without it
+        console.error(`⚠️  Consolidation failed: ${(error as Error).message}`);
       }
-
-      consolidatedFiles.push(result.outputFile);
     }
 
-    // Step 6: Update README.md with summary index
-    const readmeUpdated = await this.updateReadmeWithSummary(targetDir, consolidatedFiles);
-
-    // Step 7: Create BACKUP_INDEX.md in .devibe/backups/
-    await fs.mkdir(deviveBackupDir, { recursive: true });
-    const backupIndexCreated = await this.createBackupIndex(deviveBackupDir, files);
+    // Step 7: Create BACKUP_INDEX.md in .devibe/
+    const deviveDir = path.join(targetDir, '.devibe');
+    await fs.mkdir(deviveDir, { recursive: true });
+    const backupIndexCreated = await this.createBackupIndex(deviveDir, files);
 
     return {
       success: true,

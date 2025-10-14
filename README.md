@@ -199,12 +199,20 @@ Quick auto-organize: Run full cleanup workflow automatically.
 
 **These commands are equivalent** - use whichever you prefer!
 
-**What it does:**
-1. Uses AI classification (or heuristics if no API key)
-2. Plans and executes file organization
-3. Updates .gitignore files
-4. Creates backups automatically
-5. Generates documentation index
+**What `--auto` does:**
+- 🔍 **Git-aware scanning** - Detects and processes each git repository independently (perfect for monorepos)
+- 🤖 **AI-powered classification** - Intelligently categorizes files using AI or heuristics fallback
+- 📂 **Automated organization** - Plans and executes file distribution to proper folders
+- 🔒 **Secret detection** - Scans for 31 types of hardcoded credentials before organizing
+- 📝 **GitIgnore management** - Automatically updates `.gitignore` to exclude `.devibe/` directories
+- 💾 **100% reversible** - All operations backed up automatically with full rollback capability
+- ⚡ **One command cleanup** - Complete repository organization in seconds
+
+**Perfect for:**
+- Post-coding session cleanup
+- Repository maintenance before commits
+- Preparing repos for team collaboration
+- Cleaning up after AI-assisted coding sessions
 
 **AI Key Handling:**
 - If no AI key is configured, you'll be prompted to add one (first 2 times only)

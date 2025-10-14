@@ -49,7 +49,7 @@ Test commands:
 Context: This tool cleans up messy repos after AI coding sessions by organizing
 root files, enforcing folder structure, and detecting secrets - all with 100%
 reversible backups. Perfect for monorepos with multiple .git boundaries.`)
-  .version('1.8.2')
+  .version('1.8.3')
   .option('--auto', 'Quick auto-organize repository', false)
   .option('--no-ai', 'Use heuristics only (no AI)', false)
   .option('--consolidate-docs <mode>', 'Consolidate markdown docs: safe (folder-by-folder) or aggressive (summarize-all)', 'safe')
@@ -2085,19 +2085,18 @@ Safety:
     const aiAvailable = await AIClassifierFactory.isAvailable();
 
     if (!aiAvailable) {
-      console.error('❌ AI engine must be enabled for auto-consolidation');
-      console.error('   Setup AI with: devibe ai-key add <provider> <key>\n');
-      process.exit(1);
+      console.log('⚠️  AI engine not available - will skip consolidation');
+      console.log('   Files will be moved to documents/, but not consolidated');
+      console.log('   Setup AI with: devibe ai-key add <provider> <key>');
+      console.log('   Or run: devibe consolidate documents/ -r --auto (after setup)\n');
     }
 
-    // Get AI provider
-    const preferredProvider = await AIClassifierFactory.getPreferredProvider();
-    const providerToUse = (preferredProvider === 'google' ? 'anthropic' : preferredProvider) || 'anthropic';
-    const aiProvider = await AIClassifierFactory.create(providerToUse);
-
-    if (!aiProvider) {
-      console.error('❌ Failed to initialize AI provider\n');
-      process.exit(1);
+    // Get AI provider (may be null if not available)
+    let aiProvider = null;
+    if (aiAvailable) {
+      const preferredProvider = await AIClassifierFactory.getPreferredProvider();
+      const providerToUse = (preferredProvider === 'google' ? 'anthropic' : preferredProvider) || 'anthropic';
+      aiProvider = await AIClassifierFactory.create(providerToUse);
     }
 
     // Initialize components

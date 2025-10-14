@@ -8,14 +8,18 @@ import { AIProvider } from '../ai-classifier';
 import { MarkdownFile, TopicCluster } from './types';
 
 export class AIContentAnalyzer {
-  constructor(private aiProvider: AIProvider) {}
+  constructor(private aiProvider: AIProvider | null) {}
   
   /**
    * Cluster files by topic using AI
    */
   async clusterByTopic(files: MarkdownFile[]): Promise<TopicCluster[]> {
+    if (!this.aiProvider) {
+      return this.fallbackClustering(files);
+    }
+
     const prompt = this.buildClusteringPrompt(files);
-    
+
     try {
       // Use suggestRepository method creatively for clustering
       const response = await this.aiProvider.suggestRepository(
@@ -23,7 +27,7 @@ export class AIContentAnalyzer {
         prompt,
         [] // No repositories needed for clustering
       );
-      
+
       return this.parseClusteringResponse(response.reasoning, files);
     } catch (error) {
       console.warn('AI clustering failed:', (error as Error).message);
