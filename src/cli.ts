@@ -2153,8 +2153,7 @@ Safety:
       console.log(`  ${directory}/`);
       console.log(`  ├── ${result.consolidatedFiles.map(f => path.basename(f)).join(', ')} (new)`);
       console.log(`  ├── README.md (updated)`);
-      console.log(`  ├── documents/ (original files)`);
-      console.log(`  └── .devibe/backups/ (backups + BACKUP_INDEX.md)`);
+      console.log(`  └── .devibe/backups/ (originals backed up + BACKUP_INDEX.md)`);
 
       console.log('\n✅ Auto-consolidation complete!\n');
 

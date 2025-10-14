@@ -228,6 +228,16 @@ export class AutoConsolidateService {
     await fs.mkdir(deviveDir, { recursive: true });
     const backupIndexCreated = await this.createBackupIndex(deviveDir, filesToMove);
 
+    // Step 8: Delete documents/ folder after successful consolidation
+    // All originals are backed up in .devibe/backups/
+    if (consolidatedFiles.length > 0 && movedFiles.length > 0) {
+      try {
+        await fs.rm(documentsDir, { recursive: true, force: true });
+      } catch (error) {
+        console.warn(`⚠️  Could not delete documents/ folder: ${(error as Error).message}`);
+      }
+    }
+
     return {
       success: true,
       movedFiles: movedFiles.length,

@@ -62,7 +62,7 @@ describe('consolidate:auto - End-to-End', () => {
     await fs.rm(testDir, { recursive: true, force: true });
   });
 
-  test('should move files from root to documents/ folder', async () => {
+  test('should delete documents/ folder after consolidation', async () => {
     // Execute auto-consolidation
     const result = await autoService.execute({
       targetDirectory: testDir,
@@ -70,19 +70,15 @@ describe('consolidate:auto - End-to-End', () => {
       suppressToC: false,
     });
 
-    // Verify files were moved
+    // Verify consolidation succeeded
     expect(result.success).toBe(true);
     expect(result.filesMovedToDocuments).toBeGreaterThan(0);
+    expect(result.consolidatedFiles.length).toBeGreaterThan(0);
 
-    // Check documents/ folder exists and has files
+    // Check documents/ folder should NOT exist (deleted after consolidation)
     const documentsDir = path.join(testDir, 'documents');
     const docsDirExists = await fs.stat(documentsDir).then(() => true).catch(() => false);
-    expect(docsDirExists).toBe(true);
-
-    const docsFiles = await fs.readdir(documentsDir);
-    expect(docsFiles.length).toBeGreaterThan(0);
-    expect(docsFiles).toContain('ARCHITECTURE.md');
-    expect(docsFiles).toContain('API_GUIDE.md');
+    expect(docsDirExists).toBe(false);
   });
 
   test('should NOT leave original files in root after moving', async () => {
@@ -211,9 +207,10 @@ describe('consolidate:auto - End-to-End', () => {
     const rootFiles = await fs.readdir(testDir);
     expect(rootFiles).toContain('README.md');
 
-    // README.md should NOT be in documents/
-    const documentsFiles = await fs.readdir(path.join(testDir, 'documents'));
-    expect(documentsFiles).not.toContain('README.md');
+    // documents/ folder should be deleted after consolidation
+    const documentsDir = path.join(testDir, 'documents');
+    const docsDirExists = await fs.stat(documentsDir).then(() => true).catch(() => false);
+    expect(docsDirExists).toBe(false);
   });
 
   test('should respect git boundaries when respectGitBoundaries is true', async () => {
@@ -288,10 +285,15 @@ describe('consolidate:auto - End-to-End', () => {
 
     expect(result.success).toBe(true);
 
-    // Check all files were handled
-    const documentsFiles = await fs.readdir(path.join(testDir, 'documents'));
-    expect(documentsFiles).toContain('FILE WITH SPACES.md');
-    expect(documentsFiles).toContain('FILE_WITH_UNDERSCORES.md');
-    expect(documentsFiles).toContain('FILE-WITH-DASHES.md');
+    // Check files were processed (filesMovedToDocuments should include special char files)
+    expect(result.filesMovedToDocuments).toBe(7); // 4 regular + 3 with special chars
+
+    // Consolidated file should be created
+    expect(result.consolidatedFiles.length).toBeGreaterThan(0);
+
+    // documents/ folder should be deleted after consolidation
+    const documentsDir = path.join(testDir, 'documents');
+    const docsDirExists = await fs.stat(documentsDir).then(() => true).catch(() => false);
+    expect(docsDirExists).toBe(false);
   });
 });
