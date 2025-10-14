@@ -208,9 +208,8 @@ export class AutoExecutor {
         this.reportProgress(options, 6, 7, 'Consolidating markdown documentation...');
 
         // Always show consolidation message (not just in verbose mode)
-        const mode = options.consolidateDocs === 'aggressive' ? 'aggressive' : 'safe';
-        const action = options.dryRun ? 'Would consolidate' : 'Consolidating';
-        console.log(`\n📄 ${action} markdown files (${mode} mode)...`);
+        const action = options.dryRun ? 'Would compress' : 'Compressing';
+        console.log(`\n📄 ${action} markdown files (consolidate + cleanup originals)...`);
 
         try {
           await this.consolidateMarkdownDocumentation(
