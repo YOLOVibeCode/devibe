@@ -15,13 +15,13 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { MarkdownFile, ConsolidationPlan, ConsolidationOptions } from './types';
-import { MarkdownScanner } from './markdown-scanner';
-import { MarkdownAnalyzer } from './markdown-analyzer';
-import { AIContentAnalyzer } from './ai-content-analyzer';
-import { MarkdownConsolidator } from './markdown-consolidator';
-import { BackupManager } from '../backup-manager';
-import { GitDetector } from '../git-detector';
+import { MarkdownFile, ConsolidationPlan, ConsolidationOptions } from './types.js';
+import { MarkdownScanner } from './markdown-scanner.js';
+import { MarkdownAnalyzer } from './markdown-analyzer.js';
+import { AIContentAnalyzer } from './ai-content-analyzer.js';
+import { MarkdownConsolidator } from './markdown-consolidator.js';
+import { BackupManager } from '../backup-manager.js';
+import { GitDetector } from '../git-detector.js';
 
 export interface AutoConsolidateOptions {
   targetDirectory: string;

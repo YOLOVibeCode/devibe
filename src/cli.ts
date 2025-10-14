@@ -49,7 +49,7 @@ Test commands:
 Context: This tool cleans up messy repos after AI coding sessions by organizing
 root files, enforcing folder structure, and detecting secrets - all with 100%
 reversible backups. Perfect for monorepos with multiple .git boundaries.`)
-  .version('1.8.7')
+  .version('1.8.8')
   .option('--auto', 'Quick auto-organize repository', false)
   .option('--no-ai', 'Disable AI and use heuristics only')
   .option('--consolidate-docs <mode>', 'Consolidate markdown docs: safe (folder-by-folder) or aggressive (summarize-all)', 'safe')
