@@ -83,3 +83,14 @@ export interface ConsolidationOptions {
   createSuperReadme: boolean;
 }
 
+export type AutoConsolidateMode = 'compress' | 'document-archive';
+
+export interface AutoConsolidateOptions {
+  targetDirectory: string;
+  mode?: AutoConsolidateMode;  // 'compress' (default) or 'document-archive'
+  maxOutputFiles?: number;
+  suppressToC?: boolean;
+  respectGitBoundaries?: boolean;
+  recursiveCompress?: boolean;  // For compress mode: recursively process git boundaries
+}
+

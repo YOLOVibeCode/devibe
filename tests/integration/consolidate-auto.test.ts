@@ -72,7 +72,7 @@ describe('consolidate:auto - End-to-End', () => {
 
     // Verify consolidation succeeded
     expect(result.success).toBe(true);
-    expect(result.filesMovedToDocuments).toBeGreaterThan(0);
+    expect(result.processedFiles).toBeGreaterThan(0);
     expect(result.consolidatedFiles.length).toBeGreaterThan(0);
 
     // Check documents/ folder should NOT exist (deleted after consolidation)
@@ -248,7 +248,7 @@ describe('consolidate:auto - End-to-End', () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.filesMovedToDocuments).toBe(0);
+    expect(result.processedFiles).toBe(0);
     expect(result.consolidatedFiles.length).toBe(0);
   });
 
@@ -285,8 +285,8 @@ describe('consolidate:auto - End-to-End', () => {
 
     expect(result.success).toBe(true);
 
-    // Check files were processed (filesMovedToDocuments should include special char files)
-    expect(result.filesMovedToDocuments).toBe(7); // 4 regular + 3 with special chars
+    // Check files were processed (processedFiles should include special char files)
+    expect(result.processedFiles).toBe(7); // 4 regular + 3 with special chars
 
     // Consolidated file should be created
     expect(result.consolidatedFiles.length).toBeGreaterThan(0);

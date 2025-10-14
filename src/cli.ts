@@ -2074,7 +2074,8 @@ Safety:
   • Full rollback with 'devibe restore'`)
   .option('--max-output <number>', 'Maximum output files', '5')
   .option('--suppress-toc', 'Suppress Table of Contents generation', false)
-  .option('--exclude <pattern>', 'Exclude file patterns (can be used multiple times)', (val, prev: string[]) => [...prev, val], [])
+  .option('--document-archive', 'Archive mode: move files to ./documents folder (preserves originals)', false)
+  .option('--recursive-compress', 'Compress mode: recursively process all git boundaries', false)
   .action(async (directory: string = '.', options: any) => {
     const { AutoConsolidateService } = await import('./markdown-consolidation/auto-consolidate-service.js');
     const { MarkdownScanner } = await import('./markdown-consolidation/markdown-scanner.js');
@@ -2126,20 +2127,22 @@ Safety:
 
       const result = await autoService.execute({
         targetDirectory: directory,
+        mode: options.documentArchive ? 'document-archive' : 'compress',
         maxOutputFiles: parseInt(options.maxOutput),
         suppressToC: options.suppressToc,
-        excludePatterns: options.exclude,
-        respectGitBoundaries: true  // Always respect git boundaries
+        respectGitBoundaries: true,
+        recursiveCompress: options.recursiveCompress || false
       });
 
       spinner.succeed(`Auto-consolidation complete`);
 
       // Display results
       console.log('\n📊 Results:');
+      console.log(`  • Mode: ${result.mode}`);
       if (result.repositoriesProcessed && result.repositoriesProcessed > 1) {
         console.log(`  • Processed ${result.repositoriesProcessed} git repositories`);
       }
-      console.log(`  • Moved ${result.movedFiles} files to documents/`);
+      console.log(`  • Processed ${result.processedFiles} markdown files`);
       console.log(`  • Created ${result.consolidatedFiles.length} consolidated file(s):`);
       result.consolidatedFiles.forEach(f => {
         const basename = path.basename(f);
@@ -2153,6 +2156,9 @@ Safety:
       console.log(`  ${directory}/`);
       console.log(`  ├── ${result.consolidatedFiles.map(f => path.basename(f)).join(', ')} (new)`);
       console.log(`  ├── README.md (updated)`);
+      if (result.mode === 'document-archive' && result.documentsFolder) {
+        console.log(`  ├── documents/ (${result.processedFiles} files archived)`);
+      }
       console.log(`  └── .devibe/backups/ (originals backed up + BACKUP_INDEX.md)`);
 
       console.log('\n✅ Auto-consolidation complete!\n');

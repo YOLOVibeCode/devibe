@@ -4,34 +4,34 @@
 
 Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently organizes your repositories, respects git boundaries, and keeps your monorepos clean.
 
-## 🎉 What's New in v1.8.7
+## 🎉 What's New in v2.0.0
 
-### 🤖 Smart AI Prompting (NEW in v1.8.7!)
+### 🚀 Two Consolidation Modes (NEW in v2.0.0!)
 
-When running `devibe --auto` without AI configured, you'll now get a helpful prompt:
+Choose your workflow: **Compress** (clean everything) or **Document-Archive** (organize and preserve).
 
-```
-⚠️  No AI API key configured
+```bash
+# COMPRESS MODE (default): Consolidate + clean up
+devibe consolidate:auto
+# → Clean root with only consolidated file + README
 
-Auto mode works best with AI classification for accurate results:
-  • With AI:      90% accuracy
-  • Without AI:   65% accuracy (heuristics only)
+# DOCUMENT-ARCHIVE MODE: Organize into folders
+devibe consolidate:auto --document-archive
+# → Files moved to ./documents/, summary in root
 
-To enable AI classification, add an API key:
-  devibe ai-key add anthropic <your-key>    # Recommended: Claude
-  devibe ai-key add openai <your-key>       # Alternative: GPT-4
-  devibe ai-key add google <your-key>       # Budget: Gemini
-
-Continue with heuristics only? (y/n):
+# Recursive compress: Process all git boundaries
+devibe consolidate:auto --recursive-compress
 ```
 
 **Features:**
-- 📊 **Clear accuracy comparison** - See the benefit of AI (90% vs 65%)
-- 🎯 **Smart decline tracking** - Only prompts twice, then remembers your choice
-- 🚫 **Skip with --no-ai** - Bypass prompts when you want heuristics only
-- ✅ **Works on any directory** - No git repository required
+- 🗜️ **Compress Mode**: Consolidates all .md files into one, backs up, deletes originals
+- 📦 **Archive Mode**: Moves files to `./documents/` with AI organization, preserves originals
+- 🔄 **Recursive Processing**: `--recursive-compress` for nested git boundaries
+- 🎯 **Smart Defaults**: Compress = 1 file, Archive = organized folders
+- 💾 **Full Safety**: All originals backed up in `.devibe/backups/`
+- 📊 **BACKUP_INDEX.md**: Track what was changed for easy restoration
 
-### 🤖 Auto-Consolidate with Git Boundary Support (v1.8.2)
+### 🤖 Auto-Consolidate Features
 
 Fully automated markdown consolidation workflow that respects git repository boundaries!
 
@@ -375,67 +375,84 @@ devibe consolidate ./docs -r --exclude '**/archive/**' --exclude '**/old/**'
 
 ### `devibe consolidate:auto`
 
-**NEW in v1.8.0+** Automated markdown consolidation workflow with intelligent organization.
+**NEW in v2.0.0** Two powerful modes for markdown organization!
+
+#### **Compress Mode** (Default) - Clean Up Everything
+
+Consolidates all .md files into one, backs them up, and deletes originals. Perfect for cleaning up doc clutter.
 
 ```bash
-# Basic usage (current directory)
+# Default compress mode - consolidates and cleans up
 devibe consolidate:auto
 
+# Process all git boundaries recursively
+devibe consolidate:auto --recursive-compress
+
 # With options
-devibe consolidate:auto --max-output 3 --suppress-toc
-
-# Exclude patterns
-devibe consolidate:auto --exclude '**/node_modules/**' --exclude '**/archive/**'
-
-# Specific directory
-devibe consolidate:auto /path/to/project
+devibe consolidate:auto --max-output 1 --suppress-toc
 ```
 
-**Automated Workflow:**
-1. 📂 **Moves** all `*.md` files from root → `<root>/documents/`
-2. 🤖 **Clusters** files by semantic similarity (AI-powered)
-3. 📋 **Creates** consolidation plan (merge-by-topic strategy)
-4. ✍️ **Merges** content with source attributions
-5. 🏷️ **Names** output files intelligently (based on content topics)
-6. 📝 **Updates** README.md with summary index automatically
-7. 💾 **Creates** `.devibe/backups/BACKUP_INDEX.md` (date-sorted)
+**Workflow:**
+1. 📊 **Consolidates** all `*.md` files directly from root into one file
+2. 💾 **Backs up** originals to `.devibe/backups/`
+3. 🗑️ **Deletes** original .md files (safely backed up)
+4. 📝 **Updates** README.md with summary
+5. 🏷️ **Creates** BACKUP_INDEX.md for restoration tracking
 
-**Git-Aware (v1.8.2+):**
+**Result:**
+- Clean root with only consolidated file + README.md
+- All originals safely backed up
+- Respects git boundaries (each repo processed independently)
+
+#### **Document-Archive Mode** - Organize Into Folders
+
+Moves files to `./documents/` with AI organization. Perfect for archiving scattered docs.
+
+```bash
+# Archive mode - move and organize
+devibe consolidate:auto --document-archive
+
+# With options
+devibe consolidate:auto --document-archive --max-output 3
+```
+
+**Workflow:**
+1. 📂 **Moves** all `*.md` files from root → `./documents/`
+2. 🤖 **Organizes** with AI into proper subdirectories (if enabled)
+3. ✍️ **Creates** consolidated summary in root
+4. 📝 **Updates** README.md
+5. ✅ **Preserves** documents folder (not deleted)
+
+**Result:**
+- Original files preserved in organized `./documents/` folder
+- Summary file in root for quick reference
+- README updated with documentation index
+
+---
+
+**Git-Aware:**
 - 🔍 Automatically detects git repository boundaries
 - 🎯 Processes each git repo independently
 - ✅ Respects monorepo structures with nested repos
-- 📊 Shows count of repositories processed
-
-**Example with nested repos:**
-```bash
-cd /monorepo
-devibe consolidate:auto .
-
-# Result:
-# ✓ Processed 3 git repositories
-# /monorepo/.git          → documents/, consolidated files
-# /monorepo/project-a/.git → documents/, consolidated files
-# /monorepo/project-b/.git → documents/, consolidated files
-```
+- 🔄 `--recursive-compress` processes ALL boundaries recursively
 
 **Safety:**
-- ✅ All original files preserved in `documents/`
-- ✅ Automatic backups before any changes
+- ✅ All original files backed up in `.devibe/backups/`
+- ✅ Automatic BACKUP_INDEX.md for tracking
 - ✅ README.md safely updated with HTML markers
 - ✅ Full rollback with `devibe restore`
 
 **Options:**
-- `--max-output <number>` - Maximum output files (default: 5)
+- `--document-archive` - Archive mode (preserves documents/ folder)
+- `--recursive-compress` - Compress mode: process all git boundaries
+- `--max-output <number>` - Maximum output files (default: 1 compress, 5 archive)
 - `--suppress-toc` - Suppress Table of Contents generation
-- `--exclude <pattern>` - Exclude file patterns (repeatable)
 
 **Use Cases:**
-- Repository cleanup after AI coding sessions
-- Weekly/sprint documentation consolidation
-- Project milestone snapshots
-- Preparing docs for AI assistants
+- **Compress**: Weekly cleanup, preparing AI context, milestone snapshots
+- **Archive**: Long-term organization, documentation hub, knowledge base
 
-⚠️ **Important:** Requires AI to be enabled. Run `devibe ai-key add <provider> <key>` first.
+🔧 **AI Optional:** Works with or without AI (uses smart fallback clustering)
 
 ### AI Management Commands
 

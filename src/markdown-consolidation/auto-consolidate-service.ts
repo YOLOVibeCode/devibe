@@ -1,21 +1,30 @@
 /**
  * Auto Consolidate Service
  *
- * Automated workflow for consolidating markdown files with intelligent organization.
+ * Supports two modes:
  *
- * Workflow:
- * 1. Copy all *.md in root → <root>/documents/
- * 2. Cluster files by semantic similarity (AI)
- * 3. Create consolidation plan (merge-by-topic strategy)
- * 4. Merge content with source attributions
- * 5. Intelligently name output files
- * 6. Update README.md with summary index + description
- * 7. Create .devibe/backups/BACKUP_INDEX.md (date-sorted)
+ * COMPRESS MODE (default):
+ * - Consolidates all .md files directly from root into one consolidated file
+ * - Backs up originals to .devibe/backups/
+ * - Deletes original .md files after backup
+ * - Respects git boundaries (each gets its own consolidated file)
+ *
+ * DOCUMENT-ARCHIVE MODE (--document-archive):
+ * - Moves/copies files from root to ./documents/ folder
+ * - AI organizes into proper subdirectories within documents/
+ * - Leaves consolidated summary in root
+ * - Preserves the documents folder
  */
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { MarkdownFile, ConsolidationPlan, ConsolidationOptions } from './types.js';
+import {
+  MarkdownFile,
+  ConsolidationPlan,
+  ConsolidationOptions,
+  AutoConsolidateOptions,
+  AutoConsolidateMode
+} from './types.js';
 import { MarkdownScanner } from './markdown-scanner.js';
 import { MarkdownAnalyzer } from './markdown-analyzer.js';
 import { AIContentAnalyzer } from './ai-content-analyzer.js';
@@ -23,23 +32,16 @@ import { MarkdownConsolidator } from './markdown-consolidator.js';
 import { BackupManager } from '../backup-manager.js';
 import { GitDetector } from '../git-detector.js';
 
-export interface AutoConsolidateOptions {
-  targetDirectory: string;
-  maxOutputFiles?: number;
-  suppressToC?: boolean;
-  excludePatterns?: string[];
-  respectGitBoundaries?: boolean;
-}
-
 export interface AutoConsolidateResult {
   success: boolean;
-  movedFiles: number;
-  filesMovedToDocuments: number;
+  mode: AutoConsolidateMode;
+  processedFiles: number;
   consolidatedFiles: string[];
   readmeUpdated: boolean;
   backupIndexCreated: boolean;
   backupPath: string;
   repositoriesProcessed?: number;
+  documentsFolder?: string;  // Only for document-archive mode
 }
 
 export class AutoConsolidateService {
@@ -57,44 +59,61 @@ export class AutoConsolidateService {
    */
   async execute(options: AutoConsolidateOptions): Promise<AutoConsolidateResult> {
     const targetDir = path.resolve(options.targetDirectory);
+    const mode: AutoConsolidateMode = options.mode || 'compress';
 
-    // If respecting git boundaries, detect and process each repo separately
-    if (options.respectGitBoundaries !== false) { // Default to true
-      return await this.executeWithGitBoundaries(targetDir, options);
+    // Route to appropriate mode implementation
+    if (mode === 'document-archive') {
+      return await this.executeDocumentArchive(targetDir, options);
+    } else {
+      return await this.executeCompress(targetDir, options);
     }
-
-    // Otherwise, process single directory
-    return await this.executeSingleDirectory(targetDir, options);
   }
 
   /**
-   * Execute consolidation respecting git boundaries
+   * COMPRESS MODE: Consolidate files directly from root, backup and delete originals
    */
-  private async executeWithGitBoundaries(
+  private async executeCompress(
     targetDir: string,
     options: AutoConsolidateOptions
   ): Promise<AutoConsolidateResult> {
-    const gitDetector = new GitDetector();
-    const gitResult = await gitDetector.detectRepositories(targetDir);
+    // Handle git boundaries if respectGitBoundaries is enabled (default true)
+    if (options.respectGitBoundaries !== false) {
+      const gitDetector = new GitDetector();
+      const gitResult = await gitDetector.detectRepositories(targetDir);
 
-    if (gitResult.repositories.length === 0) {
-      // No git repos found, process as single directory
-      return await this.executeSingleDirectory(targetDir, options);
+      if (gitResult.repositories.length > 1 || (gitResult.repositories.length === 1 && gitResult.repositories[0].path !== targetDir)) {
+        // Multiple repos or nested repos found
+        if (options.recursiveCompress) {
+          // Process each git boundary recursively
+          return await this.executeCompressMultiple(gitResult.repositories, options);
+        } else {
+          // Just process the root
+          return await this.executeCompressSingle(targetDir, options);
+        }
+      }
     }
 
-    // Process each git repository independently
-    let totalMovedFiles = 0;
-    let totalFilesMovedToDocuments = 0;
+    // Single directory (no git boundaries or disabled)
+    return await this.executeCompressSingle(targetDir, options);
+  }
+
+  /**
+   * Compress multiple git boundaries recursively
+   */
+  private async executeCompressMultiple(
+    repositories: { path: string; isRoot: boolean }[],
+    options: AutoConsolidateOptions
+  ): Promise<AutoConsolidateResult> {
+    let totalProcessedFiles = 0;
     let allConsolidatedFiles: string[] = [];
     let anyReadmeUpdated = false;
     let anyBackupIndexCreated = false;
     let backupPaths: string[] = [];
 
-    for (const repo of gitResult.repositories) {
-      const repoResult = await this.executeSingleDirectory(repo.path, options);
+    for (const repo of repositories) {
+      const repoResult = await this.executeCompressSingle(repo.path, options);
 
-      totalMovedFiles += repoResult.movedFiles;
-      totalFilesMovedToDocuments += repoResult.filesMovedToDocuments;
+      totalProcessedFiles += repoResult.processedFiles;
       allConsolidatedFiles.push(...repoResult.consolidatedFiles);
       anyReadmeUpdated = anyReadmeUpdated || repoResult.readmeUpdated;
       anyBackupIndexCreated = anyBackupIndexCreated || repoResult.backupIndexCreated;
@@ -105,20 +124,102 @@ export class AutoConsolidateService {
 
     return {
       success: true,
-      movedFiles: totalMovedFiles,
-      filesMovedToDocuments: totalFilesMovedToDocuments,
+      mode: 'compress',
+      processedFiles: totalProcessedFiles,
       consolidatedFiles: allConsolidatedFiles,
       readmeUpdated: anyReadmeUpdated,
       backupIndexCreated: anyBackupIndexCreated,
       backupPath: backupPaths.join(', '),
-      repositoriesProcessed: gitResult.repositories.length
+      repositoriesProcessed: repositories.length
     };
   }
 
   /**
-   * Execute consolidation for a single directory
+   * Compress single directory: consolidate all .md files directly from root
    */
-  private async executeSingleDirectory(
+  private async executeCompressSingle(
+    targetDir: string,
+    options: AutoConsolidateOptions
+  ): Promise<AutoConsolidateResult> {
+    const deviveBackupDir = path.join(targetDir, '.devibe', 'backups');
+
+    // Step 1: Scan markdown files in root (non-recursive)
+    const scanOptions = {
+      targetDirectory: targetDir,
+      recursive: false,
+      excludePatterns: ['node_modules/**', '.git/**', '.devibe/**'],
+      includeHidden: false
+    };
+
+    const files = await this.scanner.scan(scanOptions);
+    const filesToProcess = files.filter(f => path.basename(f.path).toLowerCase() !== 'readme.md');
+
+    if (filesToProcess.length === 0) {
+      return {
+        success: true,
+        mode: 'compress',
+        processedFiles: 0,
+        consolidatedFiles: [],
+        readmeUpdated: false,
+        backupIndexCreated: false,
+        backupPath: ''
+      };
+    }
+
+    // Step 2: Consolidate files directly (no documents/ folder)
+    const consolidationOptions: ConsolidationOptions = {
+      maxOutputFiles: options.maxOutputFiles || 1,
+      preserveOriginals: false,  // We'll handle backup separately
+      createSuperReadme: false
+    };
+
+    const plans = await this.consolidator.createPlan(filesToProcess, consolidationOptions);
+    const consolidatedFiles: string[] = [];
+
+    for (const plan of plans) {
+      const outputFile = await this.generateIntelligentFilename(targetDir, plan, plans.length);
+      plan.outputFile = outputFile;
+
+      const result = await this.consolidator.executePlan(plan);
+      consolidatedFiles.push(result.outputFile);
+
+      if (options.suppressToC) {
+        await this.suppressTableOfContents(outputFile);
+      }
+    }
+
+    // Step 3: Update README if exists
+    const readmeUpdated = await this.updateReadme(targetDir, consolidatedFiles);
+
+    // Step 4: Create BACKUP_INDEX.md in .devibe/
+    const deviveDir = path.join(targetDir, '.devibe');
+    await fs.mkdir(deviveDir, { recursive: true });
+    const backupIndexCreated = await this.createBackupIndex(deviveDir, filesToProcess);
+
+    // Step 5: Delete original .md files (already backed up by consolidator)
+    for (const file of filesToProcess) {
+      try {
+        await fs.unlink(file.path);
+      } catch (error) {
+        console.warn(`⚠️  Could not delete ${file.path}: ${(error as Error).message}`);
+      }
+    }
+
+    return {
+      success: true,
+      mode: 'compress',
+      processedFiles: filesToProcess.length,
+      consolidatedFiles,
+      readmeUpdated,
+      backupIndexCreated,
+      backupPath: deviveBackupDir
+    };
+  }
+
+  /**
+   * DOCUMENT-ARCHIVE MODE: Move files to ./documents with AI organization
+   */
+  private async executeDocumentArchive(
     targetDir: string,
     options: AutoConsolidateOptions
   ): Promise<AutoConsolidateResult> {
@@ -129,29 +230,29 @@ export class AutoConsolidateService {
     const scanOptions = {
       targetDirectory: targetDir,
       recursive: false,
-      excludePatterns: options.excludePatterns || ['node_modules/**', '.git/**', 'documents/**', '.devibe/**'],
+      excludePatterns: ['node_modules/**', '.git/**', 'documents/**', '.devibe/**'],
       includeHidden: false
     };
 
     const files = await this.scanner.scan(scanOptions);
+    const filesToMove = files.filter(f => path.basename(f.path).toLowerCase() !== 'readme.md');
 
-
-    if (files.length === 0) {
+    if (filesToMove.length === 0) {
       return {
         success: true,
-        movedFiles: 0,
-        filesMovedToDocuments: 0,
+        mode: 'document-archive',
+        processedFiles: 0,
         consolidatedFiles: [],
         readmeUpdated: false,
         backupIndexCreated: false,
-        backupPath: ''
+        backupPath: '',
+        documentsFolder: documentsDir
       };
     }
 
     // Step 2: Move files to documents/ directory (except README.md which stays in root)
     await fs.mkdir(documentsDir, { recursive: true });
     const movedFiles: MarkdownFile[] = [];
-    const filesToMove = files.filter(f => path.basename(f.path).toLowerCase() !== 'readme.md');
 
     for (const file of filesToMove) {
       const destPath = path.join(documentsDir, path.basename(file.path));
@@ -175,45 +276,36 @@ export class AutoConsolidateService {
       }
     }
 
-    // Step 3: Consolidate files (works with or without AI using fallback)
+    // Step 3: Create consolidated summary in root (files stay in documents/)
     const consolidatedFiles: string[] = [];
     let readmeUpdated = false;
 
-    // Always attempt consolidation (AI analyzer has built-in fallback for null provider)
     if (movedFiles.length > 0) {
       try {
-        // Step 3a: Analyze and cluster files
-        const relevanceAnalyses = movedFiles.map(file =>
-          this.analyzer.analyzeRelevance(file, movedFiles)
-        );
-
         const consolidationOptions: ConsolidationOptions = {
-          maxOutputFiles: options.maxOutputFiles || 5,
-          preserveOriginals: true,
+          maxOutputFiles: options.maxOutputFiles || 1,
+          preserveOriginals: true,  // Keep files in documents/
           createSuperReadme: false
         };
 
-        // Step 4: Create consolidation plan
+        // Create consolidation plan
         const plans = await this.consolidator.createPlan(movedFiles, consolidationOptions);
 
-        // Step 5: Execute consolidation with intelligent naming
+        // Execute consolidation - creates summary in root
         for (const plan of plans) {
-          // Generate intelligent output filename
           const outputFile = await this.generateIntelligentFilename(targetDir, plan, plans.length);
           plan.outputFile = outputFile;
 
           const result = await this.consolidator.executePlan(plan);
+          consolidatedFiles.push(result.outputFile);
 
-          // Optionally suppress ToC
           if (options.suppressToC) {
             await this.suppressTableOfContents(outputFile);
           }
-
-          consolidatedFiles.push(result.outputFile);
         }
 
-        // Step 6: Update README.md with summary index
-        readmeUpdated = await this.updateReadmeWithSummary(targetDir, consolidatedFiles);
+        // Step 4: Update README.md with summary
+        readmeUpdated = await this.updateReadme(targetDir, consolidatedFiles);
       } catch (error) {
         // If consolidation fails, continue without it
         console.error(`⚠️  Consolidation failed: ${(error as Error).message}`);
@@ -223,29 +315,22 @@ export class AutoConsolidateService {
       }
     }
 
-    // Step 7: Create BACKUP_INDEX.md in .devibe/
+    // Step 5: Create BACKUP_INDEX.md in .devibe/
     const deviveDir = path.join(targetDir, '.devibe');
     await fs.mkdir(deviveDir, { recursive: true });
     const backupIndexCreated = await this.createBackupIndex(deviveDir, filesToMove);
 
-    // Step 8: Delete documents/ folder after successful consolidation
-    // All originals are backed up in .devibe/backups/
-    if (consolidatedFiles.length > 0 && movedFiles.length > 0) {
-      try {
-        await fs.rm(documentsDir, { recursive: true, force: true });
-      } catch (error) {
-        console.warn(`⚠️  Could not delete documents/ folder: ${(error as Error).message}`);
-      }
-    }
+    // NOTE: In document-archive mode, we KEEP the documents/ folder
 
     return {
       success: true,
-      movedFiles: movedFiles.length,
-      filesMovedToDocuments: movedFiles.length,
+      mode: 'document-archive',
+      processedFiles: movedFiles.length,
       consolidatedFiles,
       readmeUpdated,
       backupIndexCreated,
-      backupPath: deviveBackupDir
+      backupPath: deviveBackupDir,
+      documentsFolder: documentsDir
     };
   }
 
@@ -330,7 +415,7 @@ export class AutoConsolidateService {
   /**
    * Update README.md with summary index and description
    */
-  private async updateReadmeWithSummary(
+  private async updateReadme(
     targetDir: string,
     consolidatedFiles: string[]
   ): Promise<boolean> {
