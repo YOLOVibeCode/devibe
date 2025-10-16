@@ -2,6 +2,66 @@
 
 **Repository cleanup utility for vibe coding sessions**
 
+<!-- AUTO-INDEX-SECTION -->
+<!--
+🤖 AI ASSISTANT - PROJECT NAVIGATION GUIDE
+============================================
+
+To fully understand and work with this project, follow this systematic approach:
+
+📚 STEP 1 - READ DOCUMENTATION: documents/INDEX.md
+   This is your PRIMARY source for understanding the project:
+   • Complete index of ALL project documentation
+   • Organized by category (specifications, guides, architecture, etc.)
+   • Read specifications FIRST to understand system design
+   • Then read guides for implementation details
+   • Every document is indexed with descriptions and word counts
+   • This is the authoritative source - do not search randomly
+
+🔧 STEP 2 - UNDERSTAND AVAILABLE SCRIPTS: scripts/INDEX.md
+   This index shows you ALL tools and automation:
+   • Categorized by purpose (setup, build, test, deploy, etc.)
+   • Includes usage examples and requirements
+   • Marked with executable status and required arguments
+   • Shows which language each script uses
+
+   ⚡ SCRIPT EXECUTION ORDER:
+   1. Setup scripts - Run FIRST for project initialization
+   2. Build scripts - Compile/build the project
+   3. Test scripts - Verify functionality
+   4. Deploy scripts - Deploy to environments
+
+🎯 COMPLETE WORKFLOW:
+   1. Read documents/INDEX.md to understand WHAT the project does
+   2. Read scripts/INDEX.md to understand HOW to work with it
+   3. Follow specifications → guides → implementation order
+   4. Use scripts in order: setup → build → test → deploy
+
+💡 KEY PRINCIPLES:
+   • Both indexes are auto-generated and always up-to-date
+   • Never search randomly - use the indexes as navigation
+   • Read documentation before writing code
+   • Check scripts before running manual commands
+   • Word counts help prioritize what to read first
+
+✅ AFTER READING BOTH INDEXES:
+   You will have complete knowledge of:
+   • System architecture and design decisions
+   • Implementation details and best practices
+   • All available automation and tooling
+   • Proper setup, build, test, and deployment procedures
+
+============================================
+-->
+
+## 📚 Documentation & Scripts
+
+**Quick Links:**
+- 📖 **[Documentation Index](documents/INDEX.md)** - Complete project documentation
+- 🔧 **[Scripts Index](scripts/INDEX.md)** - All available scripts and tools
+
+<!-- AUTO-INDEX-SECTION -->
+
 Stop the chaos after intense AI-assisted coding sessions. UnVibe intelligently organizes your repositories, respects git boundaries, and keeps your monorepos clean.
 
 ## 🎉 What's New in v2.0.0
@@ -114,10 +174,15 @@ Advanced AI-powered markdown consolidation for interactive workflows.
 ✅ **Auto-fix detection** - Identifies issues that can be automatically resolved  
 ✅ **CI/CD ready** - JSON output for automation pipelines  
 
-### 📝 Documentation Management (NEW in v1.7.0)
-✅ **Markdown consolidation** - AI-powered doc organization with topic clustering  
-✅ **Relevance analysis** - Multi-factor scoring (recency, quality, connectivity)  
-✅ **Smart strategies** - Merge, summarize, archive, or create navigation hub  
+### 📝 Documentation Management (NEW in v3.0.0)
+✅ **Project convention analysis** - Auto-detects existing docs/, scripts/, and root file conventions
+✅ **Intelligent indexing** - Creates smart docs/INDEX.md and scripts/INDEX.md with categorization
+✅ **Folder conflict resolution** - Interactive merge when both docs/ and documents/ exist
+✅ **README AI integration** - Adds AI-visible navigation instructions to guide assistants
+✅ **Important file protection** - Never consolidates README, CHANGELOG, CONTRIBUTING, LICENSE
+✅ **Markdown consolidation** - AI-powered doc organization with topic clustering
+✅ **Relevance analysis** - Multi-factor scoring (recency, quality, connectivity)
+✅ **Smart strategies** - Merge, summarize, archive, or create navigation hub
 ✅ **Content preservation** - Validation and backup with rollback capability  
 
 ### 🔧 Developer Experience
@@ -185,6 +250,70 @@ devibe validate-rulepack my-pack.json
 # Consolidate markdown documentation (NEW in v1.7.0!)
 devibe consolidate ./docs --dry-run
 ```
+
+### 📁 Automatic Folder Detection (NEW in v3.0.0)
+
+Devibe intelligently detects and respects your existing folder structure:
+
+#### Automatic Detection Rules:
+
+**For documentation:**
+- If only `docs/` exists → uses it automatically
+- If only `documents/` exists → uses it automatically
+- If **both** exist → prompts you once, saves preference to `.devibe/config.json`
+
+**For scripts:**
+- If only `scripts/` exists → uses it automatically
+- If only `script/` exists → uses it automatically
+- If **both** exist → prompts you once, saves preference to `.devibe/config.json`
+
+#### Conflict Resolution Prompt:
+
+When both folders exist, you'll see this **once per project**:
+
+**Documentation folders:**
+```
+⚠️  Found both docs/ and documents/ folders
+
+Options:
+  1. Use docs/ folder (skip documents/)
+  2. Use documents/ folder (skip docs/)
+  3. Merge documents/ → docs/ (move all files)
+  4. Merge docs/ → documents/ (move all files)
+  5. Skip indexing for now
+
+Choose option (1-5):
+✓ Saved preference: docs/
+```
+
+**Scripts folders:**
+```
+⚠️  Found both script/ and scripts/ folders
+
+Options:
+  1. Use scripts/ folder (skip script/)
+  2. Use script/ folder (skip scripts/)
+  3. Merge script/ → scripts/ (move all files)
+  4. Merge scripts/ → script/ (move all files)
+  5. Skip indexing for now
+
+Choose option (1-5):
+✓ Saved preference: scripts/
+```
+
+#### How Preferences Work:
+
+1. **First time**: Devibe detects conflict and prompts you
+2. **You choose**: Select option 1-4 (saved to `.devibe/config.json`)
+3. **Future runs**: Uses saved preference automatically, no prompt
+4. **Project-specific**: Each project remembers its own preference
+
+This ensures:
+- ✅ **Zero prompts** when only one folder exists (automatic)
+- ✅ **One prompt** when both exist (saves your choice)
+- ✅ **Zero prompts** on future runs (uses saved preference)
+- ✅ Files merged intelligently (preserves existing files, skips duplicates)
+- ✅ Project-specific preferences in `.devibe/config.json`
 
 ## Commands
 

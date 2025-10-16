@@ -11,6 +11,7 @@ export { MarkdownConsolidator } from './markdown-consolidator';
 export { SuperReadmeGenerator } from './super-readme-generator';
 export { ConsolidationValidator } from './consolidation-validator';
 export { AutoConsolidateService } from './auto-consolidate-service';
+export { DocsIndexGenerator } from './docs-index-generator.js';
 export * from './types';
 
 

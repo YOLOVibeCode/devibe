@@ -15,6 +15,10 @@ export interface UserPreferences {
   apiKeyPromptDisabled?: boolean;
   apiKeyPromptDeclineCount?: number;
   version?: string;
+  folderPreferences?: {
+    docsFolderChoice?: 'docs' | 'documents' | 'ask';
+    scriptsFolderChoice?: 'script' | 'scripts' | 'ask';
+  };
 }
 
 export class PreferencesManager {
@@ -164,6 +168,37 @@ export class PreferencesManager {
   async disableAPIKeyPrompt(): Promise<void> {
     await this.load();
     this.preferences.apiKeyPromptDisabled = true;
+    await this.save();
+  }
+
+  /**
+   * Get user's folder preference
+   */
+  async getFolderPreference(type: 'docs' | 'scripts'): Promise<string | undefined> {
+    await this.load();
+    if (!this.preferences.folderPreferences) {
+      return undefined;
+    }
+    if (type === 'docs') {
+      return this.preferences.folderPreferences.docsFolderChoice;
+    } else {
+      return this.preferences.folderPreferences.scriptsFolderChoice;
+    }
+  }
+
+  /**
+   * Set user's folder preference
+   */
+  async setFolderPreference(type: 'docs' | 'scripts', choice: 'docs' | 'documents' | 'script' | 'scripts' | 'ask'): Promise<void> {
+    await this.load();
+    if (!this.preferences.folderPreferences) {
+      this.preferences.folderPreferences = {};
+    }
+    if (type === 'docs') {
+      this.preferences.folderPreferences.docsFolderChoice = choice as 'docs' | 'documents' | 'ask';
+    } else {
+      this.preferences.folderPreferences.scriptsFolderChoice = choice as 'script' | 'scripts' | 'ask';
+    }
     await this.save();
   }
 

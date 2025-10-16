@@ -20,6 +20,7 @@ import { BackupManager } from './backup-manager.js';
 import { AIClassifierFactory } from './ai-classifier.js';
 import { GitIgnoreManager } from './gitignore-manager.js';
 import { getPreferencesManager } from './user-preferences.js';
+import { ProjectConventionAnalyzer, type ProjectConventions } from './project-convention-analyzer.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -47,6 +48,8 @@ export class AutoExecutor {
   private detector = new GitDetector();
   private classifier = new IntelligentClassifier();
   private gitignoreManager = new GitIgnoreManager();
+  private conventionAnalyzer = new ProjectConventionAnalyzer();
+  private projectConventions?: ProjectConventions;
 
   /**
    * Automatically clean up repository using AI
@@ -136,8 +139,21 @@ export class AutoExecutor {
         }
       }
 
-      // Step 3: Analyze project structure (for intelligent classification)
-      this.reportProgress(options, 3, 7, 'Analyzing project structure...');
+      // Step 3: Analyze project structure and conventions (for intelligent classification)
+      this.reportProgress(options, 3, 7, 'Analyzing project structure and conventions...');
+
+      // Analyze existing conventions to respect project patterns (with caching)
+      this.projectConventions = await this.conventionAnalyzer.analyzeWithCache(options.path, repositoriesToProcess);
+
+      if (options.verbose) {
+        console.log(this.conventionAnalyzer.getSummary(this.projectConventions));
+      } else {
+        console.log(`\n📋 Detected project conventions - respecting existing structure\n`);
+      }
+
+      // Set conventions on classifier so it can use them for smarter classification
+      this.classifier.setProjectConventions(this.projectConventions);
+
       await this.classifier.classifyBatch([], repositoriesToProcess);
 
       // Step 4: Create execution plan using intelligent classification
@@ -221,6 +237,38 @@ export class AutoExecutor {
         } catch (error) {
           console.error(`\n⚠️  Markdown consolidation failed: ${(error as Error).message}`);
           // Don't fail the entire auto-executor if consolidation fails
+        }
+      }
+
+      // Step 6.9: Generate docs folder index
+      if (executionResult.success) {
+        try {
+          await this.generateDocsIndex(
+            options.path,
+            options.verbose || false,
+            options.dryRun || false
+          );
+        } catch (error) {
+          if (options.verbose) {
+            console.error(`\n⚠️  Docs index generation failed: ${(error as Error).message}`);
+          }
+          // Don't fail if docs index fails
+        }
+      }
+
+      // Step 6.10: Generate scripts folder index
+      if (executionResult.success) {
+        try {
+          await this.generateScriptsIndex(
+            options.path,
+            options.verbose || false,
+            options.dryRun || false
+          );
+        } catch (error) {
+          if (options.verbose) {
+            console.error(`\n⚠️  Scripts index generation failed: ${(error as Error).message}`);
+          }
+          // Don't fail if scripts index fails
         }
       }
 
@@ -312,6 +360,400 @@ export class AutoExecutor {
       warnings: plan.warnings,
       estimatedDuration: plan.estimatedDuration,
     };
+  }
+
+  /**
+   * Load folder preference from project-specific .devibe/config.json
+   */
+  private async loadFolderPreference(repoPath: string, type: 'docs' | 'scripts'): Promise<string | null> {
+    const configPath = path.join(repoPath, '.devibe', 'config.json');
+    try {
+      const data = await fs.readFile(configPath, 'utf-8');
+      const config = JSON.parse(data);
+      if (type === 'docs') {
+        return config.folderPreferences?.docsFolderChoice || null;
+      } else {
+        return config.folderPreferences?.scriptsFolderChoice || null;
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Save folder preference to project-specific .devibe/config.json
+   */
+  private async saveFolderPreference(repoPath: string, type: 'docs' | 'scripts', choice: string): Promise<void> {
+    const devibePath = path.join(repoPath, '.devibe');
+    const configPath = path.join(devibePath, 'config.json');
+
+    // Ensure .devibe directory exists
+    await fs.mkdir(devibePath, { recursive: true });
+
+    // Load existing config or create new one
+    let config: any = {};
+    try {
+      const data = await fs.readFile(configPath, 'utf-8');
+      config = JSON.parse(data);
+    } catch {
+      // Config doesn't exist, start fresh
+    }
+
+    // Update folder preferences
+    if (!config.folderPreferences) {
+      config.folderPreferences = {};
+    }
+
+    if (type === 'docs') {
+      config.folderPreferences.docsFolderChoice = choice;
+    } else {
+      config.folderPreferences.scriptsFolderChoice = choice;
+    }
+
+    // Save config
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+  }
+
+  /**
+   * Check for docs/documents folder conflicts and prompt user
+   *
+   * Logic:
+   * - If only one exists: use it automatically (no prompt)
+   * - If both exist: check saved preference in .devibe/config.json
+   *   - If preference exists: use it
+   *   - If no preference: prompt user and save their choice
+   */
+  private async resolveFolderConflict(repoPath: string, dryRun: boolean = false): Promise<string | null> {
+    const docsPath = path.join(repoPath, 'docs');
+    const documentsPath = path.join(repoPath, 'documents');
+
+    let docsExists = false;
+    let documentsExists = false;
+
+    try {
+      const docsStat = await fs.stat(docsPath);
+      docsExists = docsStat.isDirectory();
+    } catch {
+      // docs doesn't exist
+    }
+
+    try {
+      const documentsStat = await fs.stat(documentsPath);
+      documentsExists = documentsStat.isDirectory();
+    } catch {
+      // documents doesn't exist
+    }
+
+    // If both exist, check saved preference or prompt user
+    if (docsExists && documentsExists) {
+      // Check for saved preference in .devibe/config.json
+      const savedChoice = await this.loadFolderPreference(repoPath, 'docs');
+
+      if (savedChoice) {
+        console.log(`\n📁 Using saved preference: ${savedChoice}/ folder`);
+        return savedChoice;
+      }
+
+      // No saved preference - prompt user
+      console.log('\n⚠️  Found both docs/ and documents/ folders\n');
+      console.log('Options:');
+      console.log('  1. Use docs/ folder (skip documents/)');
+      console.log('  2. Use documents/ folder (skip docs/)');
+      console.log('  3. Merge documents/ → docs/ (move all files)');
+      console.log('  4. Merge docs/ → documents/ (move all files)');
+      console.log('  5. Skip indexing for now\n');
+
+      const readline = await import('readline');
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+
+      const answer: string = await new Promise((resolve) => {
+        rl.question('Choose option (1-5): ', (answer) => {
+          rl.close();
+          resolve(answer.trim());
+        });
+      });
+
+      let choice: string | null = null;
+
+      switch (answer) {
+        case '1':
+          choice = 'docs';
+          await this.saveFolderPreference(repoPath, 'docs', 'docs');
+          console.log('✓ Saved preference: docs/');
+          break;
+        case '2':
+          choice = 'documents';
+          await this.saveFolderPreference(repoPath, 'docs', 'documents');
+          console.log('✓ Saved preference: documents/');
+          break;
+        case '3':
+          if (!dryRun) {
+            await this.mergeFolders(documentsPath, docsPath);
+            console.log('✓ Merged documents/ → docs/');
+          } else {
+            console.log('📋 Would merge: documents/ → docs/');
+          }
+          choice = 'docs';
+          await this.saveFolderPreference(repoPath, 'docs', 'docs');
+          console.log('✓ Saved preference: docs/');
+          break;
+        case '4':
+          if (!dryRun) {
+            await this.mergeFolders(docsPath, documentsPath);
+            console.log('✓ Merged docs/ → documents/');
+          } else {
+            console.log('📋 Would merge: docs/ → documents/');
+          }
+          choice = 'documents';
+          await this.saveFolderPreference(repoPath, 'docs', 'documents');
+          console.log('✓ Saved preference: documents/');
+          break;
+        case '5':
+          choice = null;
+          break;
+        default:
+          console.log('Invalid choice, skipping indexing');
+          choice = null;
+      }
+
+      return choice;
+    }
+
+    // Only one exists - return it
+    if (docsExists) return 'docs';
+    if (documentsExists) return 'documents';
+
+    // Neither exists
+    return null;
+  }
+
+  /**
+   * Merge source folder into destination folder
+   */
+  private async mergeFolders(sourcePath: string, destPath: string): Promise<void> {
+    const mergeRecursive = async (src: string, dest: string): Promise<void> => {
+      const entries = await fs.readdir(src, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+
+        if (entry.isDirectory()) {
+          await fs.mkdir(destPath, { recursive: true });
+          await mergeRecursive(srcPath, destPath);
+        } else {
+          // Check if file already exists in destination
+          try {
+            await fs.stat(destPath);
+            // File exists - prompt for overwrite
+            console.log(`   ⚠️  ${entry.name} exists in destination, keeping original`);
+          } catch {
+            // File doesn't exist - copy it
+            await fs.copyFile(srcPath, destPath);
+          }
+        }
+      }
+    };
+
+    await mergeRecursive(sourcePath, destPath);
+
+    // Remove source folder after merge
+    await fs.rm(sourcePath, { recursive: true, force: true });
+  }
+
+  /**
+   * Generate intelligent docs folder index
+   */
+  private async generateDocsIndex(
+    repoPath: string,
+    verbose: boolean,
+    dryRun: boolean = false
+  ): Promise<void> {
+    // Check for folder conflicts first (always check, but behavior differs based on dryRun)
+    const resolvedFolder = await this.resolveFolderConflict(repoPath, dryRun);
+    if (resolvedFolder === null) {
+      // User chose to skip or no folder exists
+      return;
+    }
+
+    const { DocsIndexGenerator } = await import('./markdown-consolidation/docs-index-generator.js');
+
+    const generator = new DocsIndexGenerator();
+
+    if (dryRun) {
+      const preview = await generator.preview(repoPath, this.projectConventions);
+      if (verbose && preview) {
+        console.log('\n' + preview);
+      }
+    } else {
+      const result = await generator.generate(repoPath, this.projectConventions, false);
+
+      if (result.filesIndexed > 0) {
+        if (verbose) {
+          console.log(`\n📚 Generated documentation index:`);
+          console.log(`   • Index: ${path.relative(repoPath, result.indexPath)}`);
+          console.log(`   • Categories: ${result.categoriesFound}`);
+          console.log(`   • Files indexed: ${result.filesIndexed}`);
+          console.log(`   • README updated: ${result.readmeUpdated ? '✓' : '✗'}`);
+        } else {
+          console.log(`\n📚 Documentation index created: ${result.filesIndexed} files indexed`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Check for script/scripts folder conflicts and prompt user
+   */
+  private async resolveScriptsFolderConflict(repoPath: string, dryRun: boolean = false): Promise<string | null> {
+    const scriptPath = path.join(repoPath, 'script');
+    const scriptsPath = path.join(repoPath, 'scripts');
+
+    let scriptExists = false;
+    let scriptsExists = false;
+
+    try {
+      const scriptStat = await fs.stat(scriptPath);
+      scriptExists = scriptStat.isDirectory();
+    } catch {
+      // script doesn't exist
+    }
+
+    try {
+      const scriptsStat = await fs.stat(scriptsPath);
+      scriptsExists = scriptsStat.isDirectory();
+    } catch {
+      // scripts doesn't exist
+    }
+
+    // If both exist, check saved preference or prompt user
+    if (scriptExists && scriptsExists) {
+      // Check for saved preference in .devibe/config.json
+      const savedChoice = await this.loadFolderPreference(repoPath, 'scripts');
+
+      if (savedChoice) {
+        console.log(`\n📁 Using saved preference: ${savedChoice}/ folder`);
+        return savedChoice;
+      }
+
+      // No saved preference - prompt user
+      console.log('\n⚠️  Found both script/ and scripts/ folders\n');
+      console.log('Options:');
+      console.log('  1. Use scripts/ folder (skip script/)');
+      console.log('  2. Use script/ folder (skip scripts/)');
+      console.log('  3. Merge script/ → scripts/ (move all files)');
+      console.log('  4. Merge scripts/ → script/ (move all files)');
+      console.log('  5. Skip indexing for now\n');
+
+      const readline = await import('readline');
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+
+      const answer: string = await new Promise((resolve) => {
+        rl.question('Choose option (1-5): ', (answer) => {
+          rl.close();
+          resolve(answer.trim());
+        });
+      });
+
+      let choice: string | null = null;
+
+      switch (answer) {
+        case '1':
+          choice = 'scripts';
+          await this.saveFolderPreference(repoPath, 'scripts', 'scripts');
+          console.log('✓ Saved preference: scripts/');
+          break;
+        case '2':
+          choice = 'script';
+          await this.saveFolderPreference(repoPath, 'scripts', 'script');
+          console.log('✓ Saved preference: script/');
+          break;
+        case '3':
+          if (!dryRun) {
+            await this.mergeFolders(scriptPath, scriptsPath);
+            console.log('✓ Merged script/ → scripts/');
+          } else {
+            console.log('📋 Would merge: script/ → scripts/');
+          }
+          choice = 'scripts';
+          await this.saveFolderPreference(repoPath, 'scripts', 'scripts');
+          console.log('✓ Saved preference: scripts/');
+          break;
+        case '4':
+          if (!dryRun) {
+            await this.mergeFolders(scriptsPath, scriptPath);
+            console.log('✓ Merged scripts/ → script/');
+          } else {
+            console.log('📋 Would merge: scripts/ → script/');
+          }
+          choice = 'script';
+          await this.saveFolderPreference(repoPath, 'scripts', 'script');
+          console.log('✓ Saved preference: script/');
+          break;
+        case '5':
+          choice = null;
+          break;
+        default:
+          console.log('Invalid choice, skipping indexing');
+          choice = null;
+      }
+
+      return choice;
+    }
+
+    // Only one exists - return it
+    if (scriptsExists) return 'scripts';
+    if (scriptExists) return 'script';
+
+    // Neither exists
+    return null;
+  }
+
+  /**
+   * Generate intelligent scripts folder index
+   */
+  private async generateScriptsIndex(
+    repoPath: string,
+    verbose: boolean,
+    dryRun: boolean = false
+  ): Promise<void> {
+    // Check for folder conflicts first (always check, but behavior differs based on dryRun)
+    const resolvedFolder = await this.resolveScriptsFolderConflict(repoPath, dryRun);
+    if (resolvedFolder === null) {
+      // User chose to skip or no folder exists
+      return;
+    }
+
+    const { ScriptsIndexGenerator } = await import('./scripts-index-generator.js');
+
+    const generator = new ScriptsIndexGenerator();
+
+    if (dryRun) {
+      const preview = await generator.preview(repoPath, this.projectConventions);
+      if (verbose && preview) {
+        console.log('\n' + preview);
+      }
+    } else {
+      const result = await generator.generate(repoPath, this.projectConventions, false);
+
+      if (result.scriptsIndexed > 0) {
+        if (verbose) {
+          console.log(`\n🔧 Generated scripts index:`);
+          console.log(`   • Index: ${path.relative(repoPath, result.indexPath)}`);
+          console.log(`   • Categories: ${result.categoriesFound}`);
+          console.log(`   • Scripts indexed: ${result.scriptsIndexed}`);
+          console.log(`   • README updated: ${result.readmeUpdated ? '✓' : '✗'}`);
+        } else {
+          console.log(`\n🔧 Scripts index created: ${result.scriptsIndexed} scripts indexed`);
+        }
+      }
+    }
   }
 
   /**

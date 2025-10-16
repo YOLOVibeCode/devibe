@@ -15,12 +15,21 @@ import { getLearningDatabase } from './ai-learning-database.js';
 import { ProjectStructureAnalyzer } from './project-structure-analyzer.js';
 import { DependencyAnalyzer } from './dependency-analyzer.js';
 import { AIClassifierFactory } from './ai-classifier.js';
+import type { ProjectConventions } from './project-convention-analyzer.js';
 import * as fs from 'fs/promises';
 
 export class IntelligentClassifier extends FileClassifier {
   private learningDb = getLearningDatabase();
   private structureAnalyzer = new ProjectStructureAnalyzer();
   private dependencyAnalyzer = new DependencyAnalyzer();
+  private projectConventions?: ProjectConventions;
+
+  /**
+   * Set project conventions to use for classification
+   */
+  setProjectConventions(conventions: ProjectConventions): void {
+    this.projectConventions = conventions;
+  }
 
   /**
    * Classify with intelligence enhancements
@@ -72,6 +81,12 @@ export class IntelligentClassifier extends FileClassifier {
 
         if (projectStructure) {
           enhancedPrompt += this.structureAnalyzer.buildContextPrompt(projectStructure);
+          enhancedPrompt += '\n\n';
+        }
+
+        // Add project conventions to context
+        if (this.projectConventions) {
+          enhancedPrompt += this.buildConventionsContext(this.projectConventions);
           enhancedPrompt += '\n\n';
         }
 
@@ -241,5 +256,58 @@ export class IntelligentClassifier extends FileClassifier {
     }
 
     return null;
+  }
+
+  /**
+   * Build conventions context for AI prompt
+   */
+  private buildConventionsContext(conventions: ProjectConventions): string {
+    const lines: string[] = [];
+
+    lines.push('PROJECT CONVENTIONS (must respect):');
+
+    // Docs conventions
+    if (conventions.docsFolder?.exists) {
+      lines.push(`✓ Documentation folder: ${conventions.docsFolder.path}/`);
+      if (conventions.docsFolder.structure?.hasSpecifications) {
+        lines.push(`  - Specifications go to ${conventions.docsFolder.path}/specifications/`);
+      }
+      if (conventions.docsFolder.structure?.hasImplementation) {
+        lines.push(`  - Implementation docs go to ${conventions.docsFolder.path}/implementation/`);
+      }
+      if (conventions.docsFolder.structure?.hasGuides) {
+        lines.push(`  - Guides go to ${conventions.docsFolder.path}/guides/`);
+      }
+    } else {
+      lines.push(`→ No docs folder exists yet (will use: ${conventions.docsFolder?.path || 'docs'}/)`);
+    }
+
+    // Scripts conventions
+    if (conventions.scriptsFolder?.exists) {
+      lines.push(`✓ Scripts folder: ${conventions.scriptsFolder.path}/`);
+      lines.push(`  → All scripts must go to ${conventions.scriptsFolder.path}/`);
+    } else {
+      lines.push(`→ No scripts folder exists yet (will use: ${conventions.scriptsFolder?.path || 'scripts'}/)`);
+    }
+
+    // Root file conventions
+    if (conventions.rootFileConventions) {
+      const rootFiles: string[] = [];
+      if (conventions.rootFileConventions.readmeInRoot) rootFiles.push('README');
+      if (conventions.rootFileConventions.changelogInRoot) rootFiles.push('CHANGELOG');
+      if (conventions.rootFileConventions.contributingInRoot) rootFiles.push('CONTRIBUTING');
+      if (conventions.rootFileConventions.licenseInRoot) rootFiles.push('LICENSE');
+
+      if (rootFiles.length > 0) {
+        lines.push(`✓ Files that MUST stay in root: ${rootFiles.join(', ')}`);
+      }
+    }
+
+    // Recommendations
+    if (conventions.recommendations?.keepFilesInRoot?.length) {
+      lines.push(`⚠️  NEVER move these files: ${conventions.recommendations.keepFilesInRoot.join(', ')}`);
+    }
+
+    return lines.join('\n');
   }
 }

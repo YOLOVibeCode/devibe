@@ -152,7 +152,8 @@ export class AutoConsolidateService {
     };
 
     const files = await this.scanner.scan(scanOptions);
-    let filesToProcess = files.filter(f => path.basename(f.path).toLowerCase() !== 'readme.md');
+    // Exclude important root files that should never be consolidated
+    let filesToProcess = files.filter(f => !this.isImportantRootFile(f.path, targetDir));
 
     // Step 1.5: If includeRelated enabled, scan and analyze additional files
     if (options.includeRelated && this.aiAnalyzer) {
@@ -244,7 +245,8 @@ export class AutoConsolidateService {
     };
 
     const files = await this.scanner.scan(scanOptions);
-    let filesToMove = files.filter(f => path.basename(f.path).toLowerCase() !== 'readme.md');
+    // Exclude important root files that should never be moved
+    let filesToMove = files.filter(f => !this.isImportantRootFile(f.path, targetDir));
 
     // Step 1.5: If includeRelated enabled, scan and analyze additional files
     if (options.includeRelated && this.aiAnalyzer) {
@@ -569,6 +571,39 @@ Consider: Is it documentation-related? (commit messages, summaries, notes, plans
     }
 
     await fs.writeFile(filePath, filteredLines.join('\n'));
+  }
+
+  /**
+   * Check if a file is an important root file that should never be consolidated
+   */
+  private isImportantRootFile(filePath: string, rootDir: string): boolean {
+    const fileName = path.basename(filePath).toLowerCase();
+    const fileDir = path.dirname(filePath);
+
+    // Only consider files in the actual root directory
+    if (path.normalize(fileDir) !== path.normalize(rootDir)) {
+      return false;
+    }
+
+    // Important root files (standard GitHub/GitLab conventions)
+    const importantFiles = [
+      'readme.md',
+      'changelog.md',
+      'contributing.md',
+      'contributors.md',
+      'license.md',
+      'license', // May not have .md extension
+      'code_of_conduct.md',
+      'security.md',
+      'support.md',
+      'authors.md',
+      'maintainers.md',
+      'codeowners.md',
+      'pull_request_template.md',
+      'issue_template.md',
+    ];
+
+    return importantFiles.includes(fileName);
   }
 
   /**
