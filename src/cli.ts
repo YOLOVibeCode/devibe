@@ -65,7 +65,7 @@ Test commands:
 Context: This tool cleans up messy repos after AI coding sessions by organizing
 root files, enforcing folder structure, and detecting secrets - all with 100%
 reversible backups. Works with or without git repositories.`)
-  .version('3.1.0')
+  .version('3.1.1')
   .option('--auto', 'Auto-organize repository + compress markdown (RECOMMENDED with AI)', false)
   .option('--dry-run', 'Preview what would be done without making changes', false)
   .option('--no-ai', 'Disable AI and use heuristics only (65% vs 90% accuracy)')
